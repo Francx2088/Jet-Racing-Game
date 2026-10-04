@@ -11,3 +11,8 @@ A 3D sky-racing browser game (three.js). Open `index.html` through any static se
 - Files: `track.js` (track generator), `levels.js` (level data), `world.js` (sky, road, scenery), `cars.js` (car models), `game.js` (gameplay, HUD, audio), `playables.js` (YouTube Playables bridge)
 - YouTube Playables: the SDK (`https://www.youtube.com/game_api/v1`) is the first script; `playables.js` handles firstFrameReady → loadData → gameReady, cloud saves via saveData (no localStorage inside YouTube), onPause/onResume (everything stops), the YouTube mute setting, sendScore (total stars), health logging, and an interstitial ad (ytgame.ads.requestInterstitialAd) after every race, before the results screen. No ad is requested at game start: YouTube handles that itself. Fonts are bundled; the game makes no other network requests.
 - Build the upload zip: `./tools/build-playables.sh` → `dist/sky-racing-playables.zip`
+
+## Builds
+
+- **YouTube Playables** — this folder (repository root). Upload zip: `./tools/build-playables.sh`.
+- **CrazyGames** — [`crazygames/`](crazygames/): the same game with the CrazyGames SDK instead of the Playables SDK. Upload zip: `./crazygames/build.sh`.
