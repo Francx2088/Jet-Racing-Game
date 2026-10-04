@@ -116,34 +116,78 @@
   };
 
   /* ---------------- input ---------------- */
-  const input = { left: false, right: false, kl: false, kr: false, boost: false, steer: 0 };
-  const pointers = new Map();
-  function syncPointers() { let l = false, r = false; pointers.forEach(x => { if (x < window.innerWidth / 2) l = true; else r = true; }); input.left = l; input.right = r; }
-  window.addEventListener('pointerdown', e => { audio.init(); if (e.target.closest('button,.panel,.card')) return; pointers.set(e.pointerId, e.clientX); syncPointers(); });
-  window.addEventListener('pointermove', e => { if (pointers.has(e.pointerId)) { pointers.set(e.pointerId, e.clientX); syncPointers(); } });
-  const pUp = e => { pointers.delete(e.pointerId); syncPointers(); };
-  window.addEventListener('pointerup', pUp); window.addEventListener('pointercancel', pUp);
+  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: a thumb slider.
+  const input = { left: false, right: false, kl: false, kr: false, boost: false, analog: 0 };
+  let touchSeen = false;
+  function isTouchDevice() {
+    const mm = q => window.matchMedia && window.matchMedia(q).matches;
+    return touchSeen || mm('(pointer: coarse)') || (navigator.maxTouchPoints > 0 && !mm('(pointer: fine)'));
+  }
+  function applyLayout() {
+    const cls = !isTouchDevice() ? 'ctl-desktop' : window.innerHeight > window.innerWidth ? 'ctl-portrait' : 'ctl-landscape';
+    const b = document.body;
+    ['ctl-desktop', 'ctl-portrait', 'ctl-landscape'].forEach(c => b.classList.toggle(c, c === cls));
+    state.layout = cls;
+  }
+  window.addEventListener('resize', applyLayout);
+  window.addEventListener('orientationchange', () => setTimeout(applyLayout, 200));
+  window.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !touchSeen) { touchSeen = true; applyLayout(); } audio.init(); });
   window.addEventListener('contextmenu', e => e.preventDefault());
+  const isLeft = k => k === 'ArrowLeft' || k === 'a' || k === 'A', isRight = k => k === 'ArrowRight' || k === 'd' || k === 'D';
+  const isBoost = k => k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'Shift';
   window.addEventListener('keydown', e => {
     audio.init();
-    if (e.key === 'ArrowLeft' || e.key === 'a') input.kl = true;
-    if (e.key === 'ArrowRight' || e.key === 'd') input.kr = true;
-    if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'Shift') input.boost = true;
-    if (e.key === 'Escape' || e.key === 'p') togglePause();
+    if (isLeft(e.key)) input.kl = true;
+    if (isRight(e.key)) input.kr = true;
+    if (isBoost(e.key)) input.boost = true;
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') togglePause();
     if (e.key === 'Enter' && state.mode === 'menu') startLevel(Math.min(save.unlocked, 8) - 1);
   });
   window.addEventListener('keyup', e => {
-    if (e.key === 'ArrowLeft' || e.key === 'a') input.kl = false;
-    if (e.key === 'ArrowRight' || e.key === 'd') input.kr = false;
-    if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'Shift') input.boost = false;
+    if (isLeft(e.key)) input.kl = false;
+    if (isRight(e.key)) input.kr = false;
+    if (isBoost(e.key)) input.boost = false;
   });
+  window.addEventListener('blur', () => { input.kl = input.kr = input.boost = false; });
+
+  // boost button
   const boostBtn = $('boost');
-  boostBtn.addEventListener('pointerdown', e => { e.preventDefault(); input.boost = true; boostBtn.classList.add('down'); audio.init(); });
+  boostBtn.addEventListener('pointerdown', e => { e.preventDefault(); boostBtn.setPointerCapture(e.pointerId); input.boost = true; boostBtn.classList.add('down'); audio.init(); });
   const boostUp = () => { input.boost = false; boostBtn.classList.remove('down'); };
-  boostBtn.addEventListener('pointerup', boostUp); boostBtn.addEventListener('pointercancel', boostUp); boostBtn.addEventListener('pointerleave', boostUp);
+  boostBtn.addEventListener('pointerup', boostUp); boostBtn.addEventListener('pointercancel', boostUp); boostBtn.addEventListener('lostpointercapture', boostUp);
+
+  // landscape: left / right arrow buttons (slide a thumb from one to the other)
+  const arrows = $('arrows'), btnL = $('btnL'), btnR = $('btnR');
+  let arrowId = null;
+  function arrowSet(e) {
+    const r = arrows.getBoundingClientRect(), left = e.clientX - r.left < r.width / 2;
+    input.left = left; input.right = !left; btnL.classList.toggle('on', left); btnR.classList.toggle('on', !left);
+  }
+  function arrowClear() { arrowId = null; input.left = input.right = false; btnL.classList.remove('on'); btnR.classList.remove('on'); }
+  arrows.addEventListener('pointerdown', e => { e.preventDefault(); arrows.setPointerCapture(e.pointerId); arrowId = e.pointerId; arrowSet(e); audio.init(); });
+  arrows.addEventListener('pointermove', e => { if (e.pointerId === arrowId) arrowSet(e); });
+  arrows.addEventListener('pointerup', e => { if (e.pointerId === arrowId) arrowClear(); });
+  arrows.addEventListener('pointercancel', arrowClear); arrows.addEventListener('lostpointercapture', arrowClear);
+
+  // portrait: thumb slider. The farther the knob is dragged, the harder the car steers.
+  const pad = $('steerPad'), knob = $('steerKnob');
+  let padId = null;
+  function padSet(e) {
+    const r = pad.getBoundingClientRect(), max = r.width / 2 - 46;
+    const off = clamp(e.clientX - (r.left + r.width / 2), -max, max), v = off / max;
+    knob.style.transform = 'translateX(' + off + 'px)';
+    input.analog = Math.abs(v) < 0.06 ? 0 : Math.sign(v) * (0.55 * Math.abs(v) + 0.45 * v * v);
+  }
+  function padClear() { padId = null; input.analog = 0; knob.style.transition = 'transform .12s'; knob.style.transform = 'translateX(0)'; }
+  pad.addEventListener('pointerdown', e => { e.preventDefault(); pad.setPointerCapture(e.pointerId); padId = e.pointerId; knob.style.transition = 'none'; padSet(e); audio.init(); });
+  pad.addEventListener('pointermove', e => { if (e.pointerId === padId) padSet(e); });
+  pad.addEventListener('pointerup', e => { if (e.pointerId === padId) padClear(); });
+  pad.addEventListener('pointercancel', padClear); pad.addEventListener('lostpointercapture', padClear);
 
   /* ---------------- game state ---------------- */
   const state = { mode: 'menu', levelIdx: 0, world: null, cars: [], player: null, time: 0, raceT: 0, countT: 0, finishT: 0, paused: false, autopilot: false, resultShown: false };
+  applyLayout();
   const fr = { p: V3(0, 0, 0), f: V3(0, 0, -1), u: V3(0, 1, 0), r: V3(1, 0, 0), k: 0, i: 0 };
   function frameAt(s, o) {
     const tr = state.world.track, n = tr.n;
@@ -178,7 +222,7 @@
     const mesh = window.SkyCars.build(style, color, { env: w.env, detail: isPlayer ? 'high' : 'low', glow: isPlayer ? w.th.road.edge : color });
     scene.add(mesh);
     return { mesh, parts: mesh.userData.parts, dims: mesh.userData.dims, style, color, isPlayer, name, s: 0, lat: 0, latV: 0, speed: 0, steerS: 0, boostT: 0, nitro: 40, nitroOn: false,
-      fr: 0, yawVis: 0, spin: 0, hitCd: 0, padCd: 0, finished: false, finishTime: 0, skill: 1, lane0: 0, laneF: 1, laneAmp: 0, ph: 0, wheelRot: 0, scrape: 0, draft: 0, combo: 0 };
+      fr: 0, padTarget: null, padSeen: new Set(), aiBurn: false, react: 60, padSeek: 0.8, margin: 1.4, rnd: Math.random, yawVis: 0, spin: 0, hitCd: 0, padCd: 0, finished: false, finishTime: 0, skill: 1, lane0: 0, laneF: 1, laneAmp: 0, ph: 0, wheelRot: 0, scrape: 0, draft: 0, combo: 0 };
   }
 
   function spawnRace(demo) {
@@ -195,6 +239,7 @@
       const c = makeCar(st, col, false, NAMES[(i + L.id) % NAMES.length]);
       c.skill = L.aiSkill + (rnd() - 0.6) * 0.05 + (i === 0 ? 0.015 : 0);
       c.lane0 = (rnd() - 0.5) * L.width * 0.5; c.laneF = 0.3 + rnd() * 0.5; c.laneAmp = L.width * (0.04 + rnd() * 0.08); c.ph = rnd() * 6.28;
+      c.react = 42 + rnd() * 60; c.padSeek = 0.55 + rnd() * 0.4; c.margin = 1.2 + rnd() * 0.5; c.rnd = rnd; c.nitro = 30 + rnd() * 20;
       cars.push(c);
     }
     // grid: 2 columns x 3 rows, player somewhere in the back half
@@ -210,27 +255,45 @@
     state.cars = cars; state.player = player;
     state.raceT = 0; state.finishT = 0; state.resultShown = false;
     // stats
-    state.stats = { rings: 0, orbs: 0, boosts: 0, crashes: 0, top: 0 };
+    state.stats = { boosts: 0, crashes: 0, top: 0 };
   }
 
   /* ---------------- gameplay update ---------------- */
   const CENT = 0.2;
-  function obstacleNear(c, ahead) {
-    const w = state.world, o = w.feats.obst, t = state.time;
-    for (const ob of o) {
-      const d = ob.i * DS - c.s;
-      if (d > -2 && d < ahead) return ob;
+  function hazardsAhead(c, ahead) {
+    const out = [];
+    for (const ob of state.world.feats.obst) { const d = ob.i * DS - c.s; if (d > -3 && d < ahead) out.push(ob); }
+    return out;
+  }
+  // choose a lateral target that stays out of every blocked span (evaluated for when the car arrives)
+  function freeLane(c, laneT, halfW, margin) {
+    const w = state.world, t = state.time, spans = [];
+    for (const ob of hazardsAhead(c, c.react)) {
+      const eta = Math.max(0, (ob.i * DS - c.s) / Math.max(c.speed, 25));
+      for (const sp of w.blocked(ob, t + eta)) spans.push([sp[0] - margin, sp[1] + margin]);
     }
-    return null;
+    if (!spans.length) return laneT;
+    spans.sort((x, y) => x[0] - y[0]);
+    const lo = -halfW + 0.4, hi = halfW - 0.4, segs = []; let cur = lo;
+    for (const [x, y] of spans) { if (x > cur) segs.push([cur, Math.min(x, hi)]); cur = Math.max(cur, y); }
+    if (cur < hi) segs.push([cur, hi]);
+    let best = laneT, bd = 1e9;
+    for (const sg of segs) {
+      if (sg[1] - sg[0] < 0.2) continue;
+      const x = clamp(laneT, sg[0], sg[1]), d = Math.abs(x - laneT) + Math.abs(x - c.lat) * 0.15;
+      if (d < bd) { bd = d; best = x; }
+    }
+    return best;
   }
 
   function stepCar(c, dt, drive) {
     const w = state.world, L = w.L, tr = w.track, M = L.mech;
     frameAt(c.s, fr);
     const halfW = L.width / 2 - 1.15;
+    const kAhead = tr.kappa[Math.min(tr.n - 2, Math.floor(c.s / DS) + 14)] || 0;
     // ---- lateral ----
     if (c.isPlayer && !drive) {
-      const want = clamp((input.right || input.kr ? 1 : 0) - (input.left || input.kl ? 1 : 0), -1, 1);
+      const want = input.analog ? clamp(input.analog, -1, 1) : clamp((input.right || input.kr ? 1 : 0) - (input.left || input.kl ? 1 : 0), -1, 1);
       c.steerS += (want - c.steerS) * (1 - Math.exp(-11 * dt));
       const grip = clamp(0.55 + c.speed / 220, 0.55, 1.0);
       c.latV += c.steerS * 52 * grip * (M.ice ? 0.75 : 1) * dt;
@@ -240,23 +303,26 @@
       c.latV = clamp(c.latV, -30, 30);
       c.lat += c.latV * dt;
     } else {
-      // AI steering toward its lane, avoiding hazards
+      // rivals: wander in their lane, chase boost pads, then steer around hazards and other cars
       let laneT = c.lane0 + Math.sin(state.time * c.laneF + c.ph) * c.laneAmp;
-      const ob = obstacleNear(c, 70);
-      if (ob) {
-        const ol = w.obstLat(ob, state.time);
-        if (Math.abs(laneT - ol) < ob.half + 2.8) laneT = ol + (laneT >= ol ? 1 : -1) * (ob.half + 3.2);
-        if (Math.abs(laneT) > halfW - 0.5) laneT = clamp(laneT, -halfW + 0.5, halfW - 0.5);
-        if (Math.abs(laneT - ol) < ob.half + 2.0) laneT = ol > 0 ? ol - ob.half - 2.4 : ol + ob.half + 2.4;
-      }
-      // dodge other cars ahead
-      for (const o of state.cars) {
-        if (o === c) continue; const d = o.s - c.s;
-        if (d > 0 && d < 16 && Math.abs(o.lat - c.lat) < 2.4) laneT = c.lat + (c.lat >= o.lat ? 1 : -1) * 3.2;
+      if (!state.demo) {
+        if (!c.padTarget || c.padTarget.i * DS < c.s - 4) {
+          c.padTarget = null;
+          for (const p of w.feats.pads) {
+            const d = p.i * DS - c.s;
+            if (d > 12 && d < 160) { if (!c.padSeen.has(p)) { c.padSeen.add(p); if (c.rnd() < c.padSeek) c.padTarget = p; } break; }
+          }
+        }
+        if (c.padTarget) laneT = c.padTarget.lat;
       }
       laneT = clamp(laneT, -halfW + 0.5, halfW - 0.5);
+      laneT = freeLane(c, laneT, halfW, c.margin);
+      for (const o of state.cars) {
+        if (o === c) continue; const d = o.s - c.s;
+        if (d > 0 && d < 16 && Math.abs(o.lat - c.lat) < 2.4) laneT = clamp(c.lat + (c.lat >= o.lat ? 1 : -1) * 3.2, -halfW + 0.5, halfW - 0.5);
+      }
       const prev = c.lat;
-      c.lat += clamp((laneT - c.lat) * 2.2, -13, 13) * dt;
+      c.lat += clamp((laneT - c.lat) * 2.6, -15, 15) * dt;
       c.latV = (c.lat - prev) / Math.max(dt, 1e-4);
     }
     // walls
@@ -273,22 +339,34 @@
     }
     // ---- speed ----
     let target = L.base * (c.isPlayer ? 1 : c.skill);
+    const racing = state.mode === 'race';
     if (!c.isPlayer && !state.demo) {
-      const p = state.player, lead = p.s - c.s;
-      if (lead > 40) target *= 1 + Math.min(L.aiRubber * 1.6, (lead - 40) / 800);
-      else if (lead < -60) target *= 1 - Math.min(0.1, (-lead - 60) / 1100);
-      const ahead = tr.kappa[Math.min(tr.n - 2, c.fr + 12)] || 0;
-      target *= 1 - Math.min(0.09, Math.abs(ahead) * 42);
+      const p = state.player, lead = p.s - c.s;           // > 0: rival is behind the player
+      if (lead > 30) target *= 1 + Math.min(L.aiRubber * 1.8, (lead - 30) / 500);
+      else if (lead < -80) target *= 1 - Math.min(0.04, (-lead - 80) / 2500);
+      target *= 1 - Math.min(0.07, Math.abs(kAhead) * 34);
     }
-    if (c.boostT > 0) { c.boostT -= dt; target *= 1.34; }
-    c.nitroOn = false;
-    if (c.isPlayer && state.mode === 'race') {
-      if ((input.boost || (state.autopilot && c.nitro > 15)) && c.nitro > 0) { c.nitroOn = true; c.nitro = Math.max(0, c.nitro - 30 * dt); target *= 1.45; }
-      if (M.regen) c.nitro = Math.min(100, c.nitro + M.regen * dt);
+    // rival nitro: a meter fed by pads and time, burned on clear straights
+    if (!c.isPlayer && !state.demo && racing) {
+      c.nitro = Math.min(100, c.nitro + 3.5 * dt);
+      const clear = Math.abs(kAhead) < 0.004 && hazardsAhead(c, 60).length === 0;
+      if (!c.aiBurn && c.nitro >= 25 && clear) c.aiBurn = true;
+      if (c.aiBurn) { c.nitro -= 30 * dt; if (c.nitro < 3 || Math.abs(kAhead) > 0.007) c.aiBurn = false; }
+      c.nitroOn = c.aiBurn;
     }
+    const padOn = c.boostT > 0;
+    if (padOn) c.boostT -= dt;
+    if (c.isPlayer) {
+      if (padOn) target *= 1.34;
+      c.nitroOn = false;
+      if (racing) {
+        if ((input.boost || (state.autopilot && c.nitro > 15)) && c.nitro > 0) { c.nitroOn = true; c.nitro = Math.max(0, c.nitro - 30 * dt); target *= 1.45; }
+        c.nitro = Math.min(100, c.nitro + (M.regen || 2) * dt);
+      }
+    } else if (padOn || c.nitroOn) target *= 1.28;
     target *= 1 - fr.f.y * 0.1;
     if (c.draft > 0) target *= 1.05;
-    const acc = c.nitroOn || c.boostT > 0 ? 2.6 : (c.speed < target ? 1.25 : 0.8);
+    const acc = c.nitroOn || padOn ? 2.6 : (c.speed < target ? 1.35 : 0.8);
     c.speed += (target - c.speed) * (1 - Math.exp(-acc * dt));
     c.s += c.speed * dt;
     c.fr = Math.min(tr.n - 2, Math.floor(c.s / DS));
@@ -297,32 +375,28 @@
     if (c.spin > 0) c.spin = Math.max(0, c.spin - dt / 0.9);
   }
 
-  function pickups(c, dt) {
-    const w = state.world, F = w.feats, t = state.time, L = w.L, st = state.stats;
+  // boost pads work for every car; hazards hurt every car
+  function pickups(c) {
+    const w = state.world, F = w.feats, t = state.time, st = state.stats;
     const idx = c.s / DS;
     for (const p of F.pads) {
       if (Math.abs(p.i - idx) < 5 && Math.abs(c.lat - p.lat) < 4.2 && c.padCd <= 0) {
-        c.padCd = 1.0; c.boostT = 1.8; if (c.isPlayer) { c.nitro = Math.min(100, c.nitro + 8); st.boosts++; toast('BOOST!', '#ffe45c'); audio.boost(); kick(0.5); }
+        c.padCd = 1.0; c.boostT = 1.8; c.nitro = Math.min(100, c.nitro + 20);
+        if (c.isPlayer) { st.boosts++; toast('BOOST!', '#ffe45c'); audio.boost(); kick(0.5); }
       }
     }
-    if (!c.isPlayer) return;
-    for (const r of F.rings) {
-      if (!r.got && Math.abs(r.i - idx) < 2.5 && Math.abs(c.lat - r.lat) < 5.8) {
-        r.got = true; r.fade = 0; c.nitro = Math.min(100, c.nitro + 24); c.boostT = Math.max(c.boostT, 0.7); st.rings++;
-        toast('RING +NITRO', '#7df9ff'); audio.ring(); flash(0.18);
-      }
-    }
-    for (const o of F.orbs) {
-      if (!o.got && Math.abs(o.i - idx) < 2.2 && Math.abs(c.lat - o.lat) < 2.4) {
-        o.got = true; c.nitro = Math.min(100, c.nitro + 4); st.orbs++; c.combo = Math.min(8, c.combo + 1); c.comboT = 1.2; audio.ding(c.combo);
-      }
-    }
-    if (c.comboT > 0) { c.comboT -= dt; if (c.comboT <= 0) c.combo = 0; }
+    if (c.hitCd > 0) return;
     for (const o of F.obst) {
-      if (c.hitCd <= 0 && Math.abs(o.i - idx) < 1.6 && Math.abs(c.lat - w.obstLat(o, t)) < o.half + 1.1) {
-        c.hitCd = 1.3; c.speed *= 0.45; c.spin = 1; c.nitro = Math.max(0, c.nitro - 10); st.crashes++;
-        toast('CRASH!', '#ff5a3a'); audio.crash(); kick(1);
-        frameAt(c.s, fr); emitSparks(V3(fr.p.x + fr.r.x * c.lat, fr.p.y + 1, fr.p.z + fr.r.z * c.lat), 24, V3(0, 4, 0), 14);
+      if (Math.abs(o.i - idx) > 1.6) continue;
+      for (const sp of w.blocked(o, t)) {
+        if (c.lat > sp[0] - 1.0 && c.lat < sp[1] + 1.0) {
+          const soft = o.type === 'cones';
+          c.hitCd = soft ? 0.6 : 1.3; c.speed *= soft ? 0.82 : (o.type === 'laser' ? 0.55 : 0.45); c.spin = soft ? 0 : 1;
+          if (c.isPlayer) { c.nitro = Math.max(0, c.nitro - (soft ? 3 : 10)); st.crashes++; toast(soft ? 'BUMP' : 'CRASH!', '#ff5a3a'); audio.crash(); kick(soft ? 0.4 : 1); }
+          else { c.nitro = Math.max(0, c.nitro - 15); c.aiBurn = false; }
+          frameAt(c.s, fr); emitSparks(V3(fr.p.x + fr.r.x * c.lat, fr.p.y + 1, fr.p.z + fr.r.z * c.lat), soft ? 8 : 24, V3(0, 4, 0), 14);
+          return;
+        }
       }
     }
   }
@@ -346,9 +420,8 @@
     p.draft = 0;
     for (const o of state.cars) {
       if (o === p) continue; const d = o.s - p.s;
-      if (d > 3 && d < 20 && Math.abs(o.lat - p.lat) < 2.8) { p.draft = 1; p.nitro = Math.min(100, p.nitro + (M.draft || 8) * dt()); }
+      if (d > 3 && d < 20 && Math.abs(o.lat - p.lat) < 2.8) { p.draft = 1; p.nitro = Math.min(100, p.nitro + (M.draft || 8) * state.dt); }
     }
-    function dt() { return state.dt; }
     if (p.draft && (!p.draftToast || state.time - p.draftToast > 2.5)) { toast('SLIPSTREAM', '#9fe7ff'); p.draftToast = state.time; }
   }
 
@@ -418,7 +491,12 @@
     camera.up.copy(cam.up);
     camera.lookAt(cam.look);
     const portrait = camera.aspect < 1;
-    camera.fov = portrait ? clamp(cam.fov * 1.32, 60, 100) : cam.fov; camera.updateProjectionMatrix();
+    camera.fov = portrait ? clamp(cam.fov * 1.32, 60, 100) : cam.fov;
+    // lift the scene so the car sits above the dashboard and controls
+    const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.17 : state.layout === 'ctl-portrait' ? 0.07 : 0.11;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (shift) camera.setViewOffset(vw, vh, 0, Math.round(vh * shift), vw, vh); else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
     // camera velocity for weather streaks
     _vel.copy(camera.position).sub(_prev).divideScalar(Math.max(dt, 1e-3)); _prev.copy(camera.position);
   }
@@ -436,20 +514,71 @@
   }
 
   /* ---------------- HUD ---------------- */
-  const hud = { pos: $('pos'), time: $('time'), speed: $('speed').querySelector('b'), nitro: $('nitroFill'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), lvl: $('lvlname'), intro: $('intro') };
-  let lastSpeed = -1, lastPos = -1, lastNitro = -1, toastTimer = 0;
+  const hud = { pos: $('pos'), time: $('time'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), lvl: $('lvlname'), intro: $('intro'), top: $('topSpeed') };
+  let lastPos = -1;
   function toast(txt, color) { hud.toast.textContent = txt; hud.toast.style.color = color || '#fff'; hud.toast.classList.remove('show'); void hud.toast.offsetWidth; hud.toast.classList.add('show'); }
   function flash(a) { hud.flash.style.opacity = a; setTimeout(() => { hud.flash.style.opacity = 0; }, 90); }
   const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+
+  // --- gauges: a speedometer (270 degree sweep, red line near the limit) and a nitro "gas" gauge ---
+  const MAXK = 400, REDK = 320, KMH = 2.0;
+  const pt = (cx, cy, r, deg) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)];
+  const arc = (cx, cy, r, d0, d1) => { const a = pt(cx, cy, r, d0), b = pt(cx, cy, r, d1); return 'M' + a[0].toFixed(2) + ' ' + a[1].toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + (d1 - d0 > 180 ? 1 : 0) + ' 1 ' + b[0].toFixed(2) + ' ' + b[1].toFixed(2); };
+  const gauge = { needle: null, prog: null, speed: null, gear: null, gNeedle: null, gProg: null, gLabel: null, last: -1, lastN: -1, lastG: 0 };
+  function buildGauges() {
+    const d0 = -135, d1 = 135, sp = k => d0 + (d1 - d0) * k / MAXK;
+    let g = '<defs><radialGradient id="dg" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#1b2342"/><stop offset="1" stop-color="#070a18"/></radialGradient></defs>';
+    g += '<circle cx="100" cy="100" r="97" fill="url(#dg)" stroke="rgba(255,255,255,.28)" stroke-width="2"/><circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>';
+    g += '<path d="' + arc(100, 100, 82, d0, d1) + '" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7" stroke-linecap="round"/>';
+    g += '<path d="' + arc(100, 100, 82, sp(REDK), d1) + '" fill="none" stroke="#ff3b30" stroke-width="7" stroke-linecap="round" opacity=".9"/>';
+    g += '<path id="dProg" d="' + arc(100, 100, 82, d0, d1) + '" pathLength="100" stroke-dasharray="0 100" fill="none" stroke="#ffb347" stroke-width="7" stroke-linecap="round"/>';
+    for (let k = 0; k <= MAXK; k += 20) {
+      const major = k % 100 === 0, a = pt(100, 100, 70, sp(k)), b = pt(100, 100, major ? 60 : 65, sp(k));
+      g += '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + (k >= REDK ? '#ff6a5e' : '#e9eefc') + '" stroke-width="' + (major ? 2.4 : 1.2) + '"/>';
+      if (major) { const t = pt(100, 100, 48, sp(k)); g += '<text x="' + t[0].toFixed(1) + '" y="' + (t[1] + 4).toFixed(1) + '" fill="#cfd8f5" font-size="11" font-weight="700" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">' + k + '</text>'; }
+    }
+    g += '<text id="dGear" x="100" y="86" fill="#9fb0e0" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">GEAR 1</text>';
+    g += '<text id="dSpeed" x="100" y="128" fill="#fff" font-size="40" font-weight="900" font-style="italic" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">0</text>';
+    g += '<text x="100" y="146" fill="#9fb0e0" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">KM/H</text>';
+    g += '<g id="dNeedle"><polygon points="100,22 96.5,100 103.5,100" fill="#ff5a3a"/><circle cx="100" cy="100" r="9" fill="#222a4a" stroke="#ff5a3a" stroke-width="3"/></g>';
+    $('dial').innerHTML = g;
+    // nitro gauge: E ... F half-dial
+    const e0 = -95, e1 = 95;
+    let n = '<defs><radialGradient id="ng" cx="50%" cy="70%" r="75%"><stop offset="0" stop-color="#1b2342"/><stop offset="1" stop-color="#070a18"/></radialGradient></defs>';
+    n += '<path d="M8 100 A62 62 0 0 1 132 100 L132 104 Q132 108 128 108 L12 108 Q8 108 8 104 Z" fill="url(#ng)" stroke="rgba(255,255,255,.28)" stroke-width="2"/>';
+    n += '<path d="' + arc(70, 92, 50, e0, e1) + '" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7" stroke-linecap="round"/>';
+    n += '<path id="gProg" d="' + arc(70, 92, 50, e0, e1) + '" pathLength="100" stroke-dasharray="0 100" fill="none" stroke="#ffb347" stroke-width="7" stroke-linecap="round"/>';
+    for (let k = 0; k <= 4; k++) { const a = pt(70, 92, 58, e0 + (e1 - e0) * k / 4), b = pt(70, 92, 52, e0 + (e1 - e0) * k / 4); n += '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="#e9eefc" stroke-width="1.6"/>'; }
+    n += '<text x="22" y="100" fill="#cfd8f5" font-size="10" font-weight="800" font-family="Segoe UI,Arial,sans-serif">E</text><text x="112" y="100" fill="#cfd8f5" font-size="10" font-weight="800" font-family="Segoe UI,Arial,sans-serif">F</text>';
+    n += '<path d="M70 52 C62 62 60 70 66 76 C64 70 70 66 70 60 C74 66 78 70 74 77 C80 72 80 62 70 52 Z" fill="#ffb347" opacity=".95"/>';
+    n += '<text id="gLabel" x="70" y="104" fill="#9fb0e0" font-size="9" font-weight="800" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">NITRO</text>';
+    n += '<g id="gNeedle"><polygon points="70,44 67.5,92 72.5,92" fill="#ff5a3a"/><circle cx="70" cy="92" r="6" fill="#222a4a" stroke="#ff5a3a" stroke-width="2.5"/></g>';
+    $('gas').innerHTML = n;
+    gauge.needle = $('dNeedle'); gauge.prog = $('dProg'); gauge.speed = $('dSpeed'); gauge.gear = $('dGear');
+    gauge.gNeedle = $('gNeedle'); gauge.gProg = $('gProg'); gauge.gLabel = $('gLabel');
+  }
+  buildGauges();
+  const GEARS = [0, 45, 95, 150, 215, 290];
+  function updateGauges(kmh, nitro, boosting) {
+    const f = clamp(kmh / MAXK, 0, 1), ang = -135 + 270 * f;
+    gauge.needle.setAttribute('transform', 'rotate(' + ang.toFixed(1) + ' 100 100)');
+    gauge.prog.setAttribute('stroke-dasharray', (f * 100).toFixed(1) + ' 100');
+    gauge.prog.setAttribute('stroke', kmh >= REDK ? '#ff3b30' : boosting ? '#4fd8ff' : '#ffb347');
+    const sk = Math.round(kmh);
+    if (sk !== gauge.last) { gauge.last = sk; gauge.speed.textContent = sk; let g = 1; for (let i = 0; i < GEARS.length; i++) if (kmh >= GEARS[i]) g = i + 1; if (g !== gauge.lastG) { gauge.lastG = g; gauge.gear.textContent = 'GEAR ' + g; } }
+    const nf = clamp(nitro / 100, 0, 1);
+    gauge.gNeedle.setAttribute('transform', 'rotate(' + (-95 + 190 * nf).toFixed(1) + ' 70 92)');
+    gauge.gProg.setAttribute('stroke-dasharray', (nf * 100).toFixed(1) + ' 100');
+    gauge.gProg.setAttribute('stroke', boosting ? '#4fd8ff' : nf < 0.2 ? '#ff5a3a' : '#ffb347');
+  }
   function updateHUD() {
     const p = state.player, rk = ranking();
     const place = rk.indexOf(p) + 1;
     if (place !== lastPos) { lastPos = place; hud.pos.innerHTML = '<b>' + place + '</b><span>' + ['st', 'nd', 'rd', 'th', 'th', 'th', 'th'][place - 1] + '</span>'; }
-    const kmh = Math.round(p.speed * 2.0);
-    if (kmh !== lastSpeed) { lastSpeed = kmh; hud.speed.textContent = kmh; }
-    const nv = Math.round(p.nitro);
-    if (nv !== lastNitro) { lastNitro = nv; hud.nitro.style.width = nv + '%'; }
-    hud.nitro.classList.toggle('on', p.nitroOn);
+    const kmh = p.speed * KMH;
+    state.stats.top = Math.max(state.stats.top, kmh);
+    updateGauges(kmh, p.nitro, p.nitroOn || p.boostT > 0);
+    hud.top.textContent = 'TOP ' + Math.round(state.stats.top) + ' · LIMIT ' + MAXK;
     hud.time.textContent = fmt(state.raceT);
     hud.vig.style.opacity = p.nitroOn || p.boostT > 0 ? 0.9 : 0;
     drawMini();
@@ -513,7 +642,6 @@
       hud.lvl.textContent = 'Level ' + L.id + ' · ' + L.name;
       hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + '</div>';
       hud.count.textContent = ''; hud.time.textContent = '0:00.0'; lastPos = -1;
-      $('hintL').style.opacity = $('hintR').style.opacity = '';
       input.boost = false;
       updateCamera(0.016); placeAll(0.016);
     });
@@ -543,7 +671,7 @@
     persist();
     $('resPlace').textContent = ord + (place === 1 ? ' 🏆' : '');
     $('resStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    $('resTime').textContent = 'Time ' + fmt(p.finishTime) + ' · Rings ' + state.stats.rings + ' · Crashes ' + state.stats.crashes;
+    $('resTime').textContent = 'Time ' + fmt(p.finishTime) + ' · Boosts ' + state.stats.boosts + ' · Crashes ' + state.stats.crashes;
     $('resBest').textContent = passed && save.best[L.id].time ? 'Best ' + fmt(save.best[L.id].time) + (newBest ? ' · NEW BEST!' : '') : '';
     $('resMsg').textContent = passed ? (idx < 7 ? 'Podium! Level ' + (idx + 2) + ' unlocked.' : 'You conquered all 8 tracks!') : 'Finish top 3 to unlock the next track. Grab boost pads and rings!';
     $('nextBtn').style.display = passed && idx < 7 ? '' : 'none';
@@ -595,8 +723,7 @@
         const drive = c.isPlayer ? state.autopilot : true;
         if (c.isPlayer && state.autopilot) autopilotInput(c);
         stepCar(c, dt, c.isPlayer ? (state.mode === 'finish' || state.autopilot) : true);
-        if (c.isPlayer && state.mode === 'race') pickups(c, dt);
-        else if (!c.isPlayer && state.mode === 'race') pickups(c, dt);
+        if (state.mode === 'race') pickups(c);
         if (!c.finished && c.s >= w.track.finishS) {
           c.finished = true; c.finishTime = t - (c.s - w.track.finishS) / Math.max(c.speed, 1);
           if (c.isPlayer) finishRace();
@@ -615,16 +742,8 @@
     updateSparks(dt); updateSpeedLines(dt);
   }
 
-  // simple autopilot used by the headless tests (window.SkyGame.autoplay)
-  function autopilotInput(c) {
-    const w = state.world, ob = obstacleNear(c, 60);
-    let want = c.lane0 || 0;
-    want = Math.sin(state.time * 0.4) * w.L.width * 0.12;
-    const pad = w.feats.pads.find(p => p.i * DS - c.s > 10 && p.i * DS - c.s < 90);
-    if (pad) want = pad.lat;
-    if (ob) { const ol = w.obstLat(ob, state.time); if (Math.abs(want - ol) < ob.half + 2.6) want = ol + (want >= ol ? 1 : -1) * (ob.half + 3); }
-    c.lane0 = want; c.laneAmp = 0;
-  }
+  // simple autopilot used by the headless tests (window.SkyGame.autoplay): drives like a rival, minus the rubber band
+  function autopilotInput(c) { c.lane0 = 0; c.laneAmp = 0; }
 
   /* ---------------- UI wiring ---------------- */
   function buildLevelGrid() {

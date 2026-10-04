@@ -68,12 +68,24 @@
       startS: 70, finishS: (n - 75) * DS };
   }
 
-  // Pick spots for pads / rings / orbs / obstacles along the road.
+  // Pick spots for boost pads and obstacles along the road.
+  function makeObstacle(type, i, w, m, rnd) {
+    const pick = f => (rnd() * 2 - 1) * w * f;
+    switch (type) {
+      case 'cones': return { i, type, lat: pick(0.3), half: 2.4 };
+      case 'bar': return { i, type, lat: 0, amp: w * 0.26, freq: 0.7 + rnd() * 0.5, phase: rnd() * 6.28, half: 2.5 };
+      case 'spinner': return { i, type, lat: pick(0.12), arm: w * 0.24, freq: 1.0 + rnd() * 0.5, phase: rnd() * 6.28, half: 0.7 };
+      case 'gate': { const gap = m.gateGap || 5.5; return { i, type, gap, gapLat: pick(0.22), half: w / 2 }; }
+      case 'laser': return { i, type, side: rnd() < 0.5 ? -1 : 1, ext: w * 0.62, period: 2.2 + rnd() * 0.8, duty: 0.55, phase: rnd() * 3, half: w / 2 };
+      default: return { i, type: 'block', lat: pick(0.34), half: 1.9 };
+    }
+  }
+
   function features(track, level) {
     const rnd = mulberry(level.id * 7919 + 13);
     const { n, F, U, gap } = track;
     const w = level.width, m = level.mech;
-    const out = { pads: [], rings: [], orbs: [], obst: [] };
+    const out = { pads: [], obst: [] };
     const free = i => {
       for (let d = -8; d <= 8; d += 2) {
         const j = Math.max(0, Math.min(n - 1, i + d));
@@ -81,31 +93,28 @@
       }
       return true;
     };
+    const mix = m.mix || ['block'];
     const kinds = [];
     for (let k = 0; k < (m.pads || 0); k++) kinds.push('pad');
-    for (let k = 0; k < (m.rings || 0); k++) kinds.push('ring');
-    for (let k = 0; k < (m.orbs || 0); k++) kinds.push('orb');
     for (let k = 0; k < (m.obst || 0); k++) kinds.push('obst');
     for (let k = kinds.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [kinds[k], kinds[j]] = [kinds[j], kinds[k]]; }
-    const lo = 220, hi = n - 140, step = (hi - lo) / Math.max(1, kinds.length);
+    // never put two hazards back to back, so there is always room to recover
+    const lo = 200, hi = n - 120, step = (hi - lo) / Math.max(1, kinds.length);
+    let lastObst = -999, mixIdx = Math.floor(rnd() * mix.length);
     kinds.forEach((kind, idx) => {
-      let target = Math.round(lo + step * (idx + 0.2 + rnd() * 0.6));
+      const target = Math.round(lo + step * (idx + 0.2 + rnd() * 0.6));
       let i = -1;
       for (let d = 0; d < 90; d += 3) {
         if (target + d < hi && free(target + d)) { i = target + d; break; }
         if (target - d > lo && free(target - d)) { i = target - d; break; }
       }
       if (i < 0) return;
-      const pick = (frac) => (rnd() * 2 - 1) * w * frac;
-      if (kind === 'pad') out.pads.push({ i, lat: pick(0.3) });
-      else if (kind === 'ring') out.rings.push({ i, lat: pick(0.22), got: false });
-      else if (kind === 'orb') {
-        const lat = pick(0.3), sw = rnd() < 0.5 ? 0 : 2.5;
-        for (let q = 0; q < 6; q++) out.orbs.push({ i: i + q * 6, lat: lat + Math.sin(q * 0.9) * sw, got: false });
-      } else {
-        const bar = m.bars && rnd() < 0.5;
-        out.obst.push(bar ? { i, lat: 0, type: 'bar', amp: w * 0.28, freq: 0.7 + rnd() * 0.6, phase: rnd() * 6.28, half: 2.6 }
-          : { i, lat: pick(0.34), type: 'block', amp: 0, freq: 0, phase: 0, half: 1.9 });
+      if (kind === 'pad') out.pads.push({ i, lat: (rnd() * 2 - 1) * w * 0.3 });
+      else {
+        if (i - lastObst < 36) return;
+        lastObst = i;
+        const type = mix[mixIdx++ % mix.length];
+        out.obst.push(makeObstacle(type, i, w, m, rnd));
       }
     });
     return out;

@@ -16,34 +16,34 @@
   const LEVELS = [
     {
       id: 1, name: 'Sunrise Drift', tag: 'Warm up above the cloud sea', twist: 'Wide, forgiving road. Learn to chase boost pads.',
-      scale: 2.4, width: 18, base: 60, aiSkill: 0.95, aiRubber: 0.05, ai: 5, car: 0,
-      mech: { pads: 9, rings: 8, orbs: 6, obst: 0, draft: 9 },
+      scale: 2.4, width: 18, base: 64, aiSkill: 1.04, aiRubber: 0.1, ai: 5, car: 0,
+      mech: { pads: 12, obst: 8, mix: ['cones', 'block', 'cones'], gateGap: 7, draft: 14, regen: 2 },
       cmds: [S(160), T(120, 55, 26), S(60), T(120, -65, 26), climb(10, 120), T(150, 95, 30), S(80), T(120, -50, 26), climb(-10, 120),
         T(140, 75, 30), S(120), T(130, -85, 30), S(100), T(110, 60, 28), S(120), T(100, -40, 24), S(200)],
       theme: {
         sky: { top: '#1f3f86', mid: '#e8836b', hor: '#ffd6a1', sun: [0.55, 0.16, -0.8], sunCol: '#ffd9a8', sunPow: 900, cloud: 0.5, cloudCol: '#ffd0c0', stars: 0 },
-        fog: { color: '#f0b894', near: 220, far: 2300 }, light: { hemiSky: '#ffd9b8', hemiGround: '#7a5a6a', dir: '#ffcf9a', dirI: 1.5, hemiI: 0.9 },
+        fog: { color: '#f0b894', near: 220, far: 2300 }, light: { hemiSky: '#ffd9b8', hemiGround: '#7a5a6a', dir: '#ffcf9a', dirI: 1.15, hemiI: 0.75 },
         road: { base: '#30323c', line: '#ffffff', edge: '#ffb347', style: 'asphalt' }, rail: '#ffb347',
-        sea: { color: '#ffd5c2', y: -160, op: 0.9, count: 150, size: 420 }, scenery: 'islands', weather: null, exposure: 1.05
+        sea: { color: '#ffd5c2', y: -160, op: 0.9, count: 150, size: 420 }, scenery: 'islands', weather: null, exposure: 0.95
       }
     },
     {
       id: 2, name: 'Cloud Canyon', tag: 'Leap the sky gaps', twist: 'Long jumps! Keep your line - the road disappears.',
-      scale: 3, width: 17, base: 66, aiSkill: 0.97, aiRubber: 0.05, ai: 5, car: 2,
-      mech: { pads: 8, rings: 12, orbs: 8, obst: 0, draft: 9 },
+      scale: 3, width: 17, base: 70, aiSkill: 1.06, aiRubber: 0.1, ai: 5, car: 2,
+      mech: { pads: 12, obst: 10, mix: ['cones', 'gate', 'block', 'bar'], gateGap: 6.4, draft: 14, regen: 2 },
       cmds: [S(100), T(100, -70, 30), S(40), jump(34), T(100, 80, 30), climb(12, 80), T(120, -100, 32), S(50), jump(40), T(110, 60, 28),
         S(30), T(100, -60, 28), climb(-12, 80), T(130, 110, 32), S(60), jump(36), T(100, -50, 28), S(60), T(90, 40, 24), S(150)],
       theme: {
         sky: { top: '#1767cf', mid: '#62aef0', hor: '#e3f2ff', sun: [-0.3, 0.7, -0.65], sunCol: '#fff4d6', sunPow: 1200, cloud: 0.62, cloudCol: '#ffffff', stars: 0 },
-        fog: { color: '#cfe6fb', near: 260, far: 2600 }, light: { hemiSky: '#bfe0ff', hemiGround: '#6f8aa6', dir: '#fff2d2', dirI: 1.7, hemiI: 1.0 },
+        fog: { color: '#cfe6fb', near: 260, far: 2600 }, light: { hemiSky: '#bfe0ff', hemiGround: '#6f8aa6', dir: '#fff2d2', dirI: 1.3, hemiI: 0.85 },
         road: { base: '#383d48', line: '#ffffff', edge: '#37d1ff', style: 'asphalt' }, rail: '#37d1ff',
-        sea: { color: '#ffffff', y: -170, op: 0.95, count: 190, size: 460 }, scenery: 'islands2', weather: null, exposure: 1.0
+        sea: { color: '#ffffff', y: -170, op: 0.95, count: 190, size: 460 }, scenery: 'islands2', weather: null, exposure: 0.95
       }
     },
     {
       id: 3, name: 'Neon Skyline', tag: 'Rooftop S-bends after dark', twist: 'Tight chicanes and a corkscrew. Chain the boost pads.',
-      scale: 2.9, width: 15, base: 72, aiSkill: 0.99, aiRubber: 0.05, ai: 5, car: 1,
-      mech: { pads: 14, rings: 6, orbs: 6, obst: 4, draft: 9 },
+      scale: 3.3, width: 15, base: 77, aiSkill: 1.07, aiRubber: 0.11, ai: 5, car: 1,
+      mech: { pads: 14, obst: 12, mix: ['gate', 'laser', 'block', 'cones'], gateGap: 5.4, draft: 14, regen: 2 },
       cmds: [S(120), T(90, 90, 34), T(90, -90, 34), S(40), T(90, 90, 34), T(90, -90, 34), climb(14, 80), CS(90, 360), S(40),
         T(120, -110, 34), S(60), T(80, 60, 30), T(80, -60, 30), climb(-14, 80), T(120, 100, 34), S(100), T(100, -90, 32), S(160)],
       theme: {
@@ -55,8 +55,8 @@
     },
     {
       id: 4, name: 'Storm Coil', tag: 'Crosswinds and lightning', twist: 'Gusts shove you sideways. Fight them through coils and a loop.',
-      scale: 2.8, width: 15, base: 76, aiSkill: 1.0, aiRubber: 0.05, ai: 5, car: 3,
-      mech: { pads: 10, rings: 8, orbs: 6, obst: 3, draft: 9, gust: 12 },
+      scale: 3.2, width: 15, base: 81, aiSkill: 1.08, aiRubber: 0.11, ai: 5, car: 3,
+      mech: { pads: 12, obst: 12, mix: ['bar', 'spinner', 'cones', 'block'], gateGap: 5.4, draft: 14, gust: 12, regen: 2 },
       cmds: [S(100), coil(10, 260, 360, 38), S(60), LOOP(48, 50), S(80), T(120, -80, 32), T(120, 90, 32), coil(-10, 240, -270, 38),
         S(80), T(100, 50, 28), T(100, -90, 30), S(120), T(100, 60, 28), S(140)],
       theme: {
@@ -68,34 +68,34 @@
     },
     {
       id: 5, name: 'Desert Mirage', tag: 'Hairpins & slipstreams', twist: 'Stick behind rivals: drafting fills your nitro fast.',
-      scale: 2.7, width: 17, base: 80, aiSkill: 1.01, aiRubber: 0.06, ai: 5, car: 4,
-      mech: { pads: 8, rings: 8, orbs: 6, obst: 2, draft: 26 },
+      scale: 3.5, width: 17, base: 86, aiSkill: 1.1, aiRubber: 0.12, ai: 5, car: 4,
+      mech: { pads: 10, obst: 12, mix: ['gate', 'block', 'bar', 'cones'], gateGap: 5.6, draft: 28, regen: 2 },
       cmds: [S(100), T(100, 60, 30), jump(36), T(90, -170, 40), S(60), climb(14, 90), T(90, 170, 40), S(60), jump(44), T(100, -70, 30),
         climb(-14, 90), T(90, 120, 36), S(50), jump(40), T(110, -150, 38), S(80), T(80, 60, 30), S(160)],
       theme: {
         sky: { top: '#2a74cf', mid: '#f2a974', hor: '#ffe3b2', sun: [-0.4, 0.28, -0.85], sunCol: '#fff0c0', sunPow: 700, cloud: 0.2, cloudCol: '#ffe6cc', stars: 0 },
-        fog: { color: '#f1c595', near: 240, far: 2500 }, light: { hemiSky: '#ffe2b8', hemiGround: '#a8754a', dir: '#ffe0a8', dirI: 1.75, hemiI: 0.95 },
+        fog: { color: '#f1c595', near: 240, far: 2500 }, light: { hemiSky: '#ffe2b8', hemiGround: '#a8754a', dir: '#ffe0a8', dirI: 1.35, hemiI: 0.8 },
         road: { base: '#4a3d34', line: '#ffe6bf', edge: '#ff7a2f', style: 'sand' }, rail: '#ff7a2f',
-        sea: null, scenery: 'mesas', weather: { type: 'dust', count: 220, color: '#ffe0b0' }, exposure: 1.05, ground: '#d9a86a'
+        sea: null, scenery: 'mesas', weather: { type: 'dust', count: 220, color: '#ffe0b0' }, exposure: 0.95, ground: '#d9a86a'
       }
     },
     {
       id: 6, name: 'Frozen Peaks', tag: 'The road is ice', twist: 'Your car SLIDES. Plan turns early and ride the downhills.',
-      scale: 2.8, width: 16, base: 78, aiSkill: 1.01, aiRubber: 0.06, ai: 5, car: 5,
-      mech: { pads: 10, rings: 8, orbs: 8, obst: 0, draft: 12, ice: 1 },
+      scale: 3.2, width: 16, base: 84, aiSkill: 1.1, aiRubber: 0.12, ai: 5, car: 5,
+      mech: { pads: 12, obst: 12, mix: ['block', 'cones', 'gate', 'spinner'], gateGap: 5.6, draft: 16, ice: 1, regen: 2 },
       cmds: [S(100), climb(16, 120), T(110, 70, 26), T(110, -70, 26), climb(-20, 160), T(120, 100, 30), S(60), climb(14, 100), CS(100, -360),
         T(100, -90, 30), climb(-18, 140), T(100, 80, 30), T(100, -80, 30), S(60), T(90, 50, 26), S(160)],
       theme: {
         sky: { top: '#3578c2', mid: '#a8d3f0', hor: '#f0f9ff', sun: [0.5, 0.45, -0.75], sunCol: '#ffffff', sunPow: 1500, cloud: 0.4, cloudCol: '#ffffff', stars: 0 },
-        fog: { color: '#dcecf7', near: 200, far: 2200 }, light: { hemiSky: '#dff2ff', hemiGround: '#8aa5bd', dir: '#ffffff', dirI: 1.6, hemiI: 1.1 },
+        fog: { color: '#dcecf7', near: 200, far: 2200 }, light: { hemiSky: '#dff2ff', hemiGround: '#8aa5bd', dir: '#ffffff', dirI: 1.3, hemiI: 0.95 },
         road: { base: '#4a6178', line: '#ffffff', edge: '#8ff3ff', style: 'ice' }, rail: '#8ff3ff',
-        sea: { color: '#f2f8ff', y: -200, op: 0.9, count: 150, size: 440 }, scenery: 'ice', weather: { type: 'snow', count: 420, color: '#ffffff' }, exposure: 1.1
+        sea: { color: '#f2f8ff', y: -200, op: 0.9, count: 150, size: 440 }, scenery: 'ice', weather: { type: 'snow', count: 420, color: '#ffffff' }, exposure: 1.0
       }
     },
     {
       id: 7, name: 'Orbit Ring', tag: 'Zero-G stunt track', twist: 'Loops, corkscrews and free nitro regen. Go full throttle.',
-      scale: 2.7, width: 14, base: 86, aiSkill: 1.02, aiRubber: 0.06, ai: 5, car: 6,
-      mech: { pads: 10, rings: 14, orbs: 14, obst: 2, draft: 12, regen: 8 },
+      scale: 3.6, width: 14, base: 92, aiSkill: 1.12, aiRubber: 0.12, ai: 5, car: 6,
+      mech: { pads: 12, obst: 14, mix: ['laser', 'spinner', 'gate', 'bar'], gateGap: 5.0, draft: 16, regen: 9 },
       cmds: [S(100), LOOP(55, 50), S(60), T(100, 80, 32), LOOP(50, -50), S(60), CS(110, 360), T(100, -100, 34), climb(12, 100), T(100, 140, 36),
         climb(-12, 100), LOOP(60, 50), S(100), T(100, -60, 30), S(100)],
       theme: {
@@ -107,8 +107,8 @@
     },
     {
       id: 8, name: 'Inferno Core', tag: 'Over the lava sea', twist: 'Narrow, fast, and full of hazards. Weave or crash.',
-      scale: 2.7, width: 13, base: 92, aiSkill: 1.03, aiRubber: 0.07, ai: 5, car: 7,
-      mech: { pads: 10, rings: 8, orbs: 6, obst: 26, bars: true, draft: 12 },
+      scale: 3.6, width: 13, base: 98, aiSkill: 1.14, aiRubber: 0.13, ai: 5, car: 7,
+      mech: { pads: 12, obst: 22, mix: ['bar', 'spinner', 'laser', 'gate', 'block'], gateGap: 4.6, draft: 16, regen: 2 },
       cmds: [S(100), T(100, 60, 30), S(40), T(100, -90, 34), jump(36), T(90, 120, 36), climb(12, 80), LOOP(50, 50), S(50), T(100, -100, 34),
         T(100, 100, 34), CS(100, 360), T(100, -150, 38), S(60), jump(40), T(100, 90, 34), climb(-12, 80), T(100, -70, 30), S(150)],
       theme: {

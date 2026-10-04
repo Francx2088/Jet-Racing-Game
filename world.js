@@ -298,33 +298,72 @@
     feats.pads.forEach(p => { group.add(place(new T.Mesh(padBase, padBaseMat), p.i, p.lat, 0.07)); group.add(place(new T.Mesh(padGeo, padMat), p.i, p.lat, 0.1)); });
     world.padTex = padTex;
 
-    const ringGeo = new T.TorusGeometry(6.2, 0.5, 10, 40);
-    const ringMat = new T.MeshBasicMaterial({ color: edgeCol.clone().lerp(lin('#ffffff'), 0.25), transparent: true, opacity: 0.95, blending: T.AdditiveBlending, depthWrite: false });
-    const discGeo = new T.CircleGeometry(6.0, 32);
-    const discMat = new T.MeshBasicMaterial({ color: edgeCol, transparent: true, opacity: 0.1, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
-    feats.rings.forEach(r => {
-      const g = new T.Group(); g.add(new T.Mesh(ringGeo, ringMat), new T.Mesh(discGeo, discMat));
-      place(g, r.i, r.lat, 5.0); r.mesh = g; r.base = g.matrix.clone(); r.fade = 0; group.add(g);
-    });
-    const orbGeo = new T.SphereGeometry(0.75, 12, 8);
-    const orbMat = new T.MeshBasicMaterial({ color: lin('#ffe45c'), blending: T.AdditiveBlending, transparent: true, opacity: 0.95, depthWrite: false });
-    feats.orbs.forEach(o => { const m = new T.Mesh(orbGeo, orbMat); place(m, o.i, o.lat, 1.7); o.mesh = m; o.base = m.matrix.clone(); group.add(m); });
-
+    // ----- hazards -----
     const hz = hazardTex(); hz.repeat.set(1, 1);
     const hazMat = new T.MeshStandardMaterial({ map: hz, roughness: 0.5, metalness: 0.4, emissive: lin('#ff2a10'), emissiveIntensity: 0.25 });
     const glowMat = new T.MeshBasicMaterial({ color: lin('#ff3a1a'), blending: T.AdditiveBlending, transparent: true, opacity: 0.8, depthWrite: false });
+    const greenMat = new T.MeshBasicMaterial({ color: lin('#3dff8a'), blending: T.AdditiveBlending, transparent: true, opacity: 0.9, depthWrite: false });
+    const postMat = new T.MeshStandardMaterial({ color: lin('#262a36'), roughness: 0.4, metalness: 0.7 });
+    const coneTex = canvasTex(16, 64, (g, ww, hh) => { g.fillStyle = '#ff6a14'; g.fillRect(0, 0, ww, hh); g.fillStyle = '#fff'; g.fillRect(0, 20, ww, 9); g.fillRect(0, 38, ww, 6); });
+    const coneMat = new T.MeshStandardMaterial({ map: coneTex, roughness: 0.6 });
+    const coneGeo = new T.ConeGeometry(0.5, 1.15, 12);
+    const boxG = new T.BoxGeometry(1, 1, 1), cylG = new T.CylinderGeometry(1, 1, 1, 14);
+    const mk = (geo, mat, x, y, z, sx, sy, sz, parent) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m; };
+    const warnGeo = new T.PlaneGeometry(w, 3.2); warnGeo.rotateX(-Math.PI / 2);
+    const hzW = hazardTex(); hzW.repeat.set(w / 4, 0.8);
+    const warnMat = new T.MeshBasicMaterial({ map: hzW, transparent: true, opacity: 0.5, depthWrite: false });
     feats.obst.forEach(o => {
       const g = new T.Group();
       if (o.type === 'bar') {
-        const bar = new T.Mesh(new T.BoxGeometry(o.half * 2, 1.3, 1.3), hazMat); bar.position.y = 1.4; g.add(bar);
-        for (const s of [-1, 1]) { const e = new T.Mesh(new T.SphereGeometry(0.8, 10, 8), glowMat); e.position.set(s * o.half, 1.4, 0); g.add(e); }
-      } else {
-        const b = new T.Mesh(new T.BoxGeometry(o.half * 2, 2.6, 2.4), hazMat); b.position.y = 1.3; g.add(b);
-        const t = new T.Mesh(new T.BoxGeometry(o.half * 2.1, 0.25, 2.5), glowMat); t.position.y = 2.7; g.add(t);
+        mk(boxG, hazMat, 0, 1.4, 0, o.half * 2, 1.3, 1.3, g);
+        for (const s of [-1, 1]) mk(new T.SphereGeometry(0.8, 10, 8), glowMat, s * o.half, 1.4, 0, 1, 1, 1, g);
+      } else if (o.type === 'block') {
+        mk(boxG, hazMat, 0, 1.3, 0, o.half * 2, 2.6, 2.4, g);
+        mk(boxG, glowMat, 0, 2.7, 0, o.half * 2.1, 0.25, 2.5, g);
+      } else if (o.type === 'cones') {
+        [[-1.5, 0.4], [0.2, -0.5], [1.4, 0.3], [0, 1.0], [-0.6, -1.0]].forEach(([x, z]) => mk(coneGeo, coneMat, x * o.half / 1.6, 0.58, z, 1, 1, 1, g));
+      } else if (o.type === 'spinner') {
+        mk(cylG, postMat, 0, 0.8, 0, 0.8, 1.6, 0.8, g);
+        mk(new T.SphereGeometry(0.9, 10, 8), glowMat, 0, 1.7, 0, 1, 1, 1, g);
+        const arm = new T.Group(); arm.position.y = 1.5; g.add(arm);
+        mk(boxG, hazMat, 0, 0, 0, o.arm * 2, 0.55, 0.75, arm);
+        for (const s of [-1, 1]) mk(new T.SphereGeometry(0.55, 10, 8), glowMat, s * o.arm, 0, 0, 1, 1, 1, arm);
+        o.arm3d = arm;
+      } else if (o.type === 'gate') {
+        const L0 = -w / 2, gl = o.gapLat - o.gap / 2, gr = o.gapLat + o.gap / 2, R0 = w / 2;
+        mk(boxG, hazMat, (L0 + gl) / 2, 1.6, 0, gl - L0, 3.2, 2.2, g);
+        mk(boxG, hazMat, (gr + R0) / 2, 1.6, 0, R0 - gr, 3.2, 2.2, g);
+        mk(boxG, glowMat, (L0 + gl) / 2, 3.3, 0, gl - L0, 0.25, 2.3, g);
+        mk(boxG, glowMat, (gr + R0) / 2, 3.3, 0, R0 - gr, 0.25, 2.3, g);
+        for (const x of [gl, gr]) mk(boxG, greenMat, x, 1.6, 0, 0.22, 3.2, 2.3, g);     // green edges = safe gap
+        mk(boxG, greenMat, o.gapLat, 3.7, 0, o.gap, 0.14, 0.14, g);
+      } else if (o.type === 'laser') {
+        const x0 = o.side < 0 ? -w / 2 : w / 2 - o.ext, x1 = o.side < 0 ? -w / 2 + o.ext : w / 2;
+        mk(boxG, postMat, o.side < 0 ? -w / 2 - 0.2 : w / 2 + 0.2, 1.4, 0, 0.7, 2.8, 0.7, g);
+        mk(boxG, postMat, o.side < 0 ? x1 : x0, 1.4, 0, 0.5, 2.8, 0.5, g);
+        const beam = mk(boxG, new T.MeshBasicMaterial({ color: lin('#ff2a2a'), blending: T.AdditiveBlending, transparent: true, opacity: 0.9, depthWrite: false }), (x0 + x1) / 2, 1.1, 0, x1 - x0, 0.28, 0.28, g);
+        const beam2 = mk(boxG, new T.MeshBasicMaterial({ color: lin('#ff2a2a'), blending: T.AdditiveBlending, transparent: true, opacity: 0.9, depthWrite: false }), (x0 + x1) / 2, 2.0, 0, x1 - x0, 0.28, 0.28, g);
+        o.beams = [beam, beam2];
       }
       g.matrixAutoUpdate = false; o.mesh = g; group.add(g);
+      if (o.type !== 'cones') {
+        group.add(place(new T.Mesh(warnGeo, warnMat), Math.max(2, o.i - 22), 0, 0.075));   // warning strip before the hazard
+        const gantry = new T.Group();                                                        // glowing red frame: visible from far away
+        for (const sx of [-1, 1]) mk(boxG, glowMat, sx * (w / 2 + 1.1), 4.8, 0, 0.35, 9.6, 0.35, gantry);
+        mk(boxG, new T.MeshBasicMaterial({ color: lin('#ff3a1a'), transparent: true, opacity: 0.45, blending: T.AdditiveBlending, depthWrite: false }), 0, 9.5, 0, w + 2.6, 0.28, 0.28, gantry);
+        gantry.matrixAutoUpdate = false; place(gantry, o.i, 0, 0); group.add(gantry);
+      }
     });
-    world.obstLat = (o, t) => o.type === 'bar' ? Math.sin(t * o.freq + o.phase) * o.amp : o.lat;
+    // lateral spans (min, max) a hazard blocks at time t; empty when inactive
+    world.blocked = (o, t) => {
+      switch (o.type) {
+        case 'bar': { const l = Math.sin(t * o.freq + o.phase) * o.amp; return [[l - o.half, l + o.half]]; }
+        case 'spinner': { const e = Math.abs(Math.cos(t * o.freq + o.phase)) * o.arm + 0.7; return [[o.lat - e, o.lat + e]]; }
+        case 'gate': return [[-w / 2 - 6, o.gapLat - o.gap / 2], [o.gapLat + o.gap / 2, w / 2 + 6]];
+        case 'laser': return ((t + o.phase) % o.period) / o.period < o.duty ? [o.side < 0 ? [-w / 2 - 6, -w / 2 + o.ext] : [w / 2 - o.ext, w / 2 + 6]] : [];
+        default: return [[o.lat - o.half, o.lat + o.half]];
+      }
+    };
 
     // ----- cloud sea / ground -----
     const dim = V3().subVectors(mx, mn);
@@ -485,12 +524,14 @@
       if (world.lavaTex) { world.lavaTex.offset.x = time * 0.004; world.lavaTex.offset.y = time * 0.006; }
       dir.position.copy(cam.position).addScaledVector(sunDir, 500); dir.target.position.copy(cam.position);
       dir.target.updateMatrixWorld();
-      feats.rings.forEach(r => {
-        if (r.got) { r.fade = Math.min(1, r.fade + dt * 3); const s = 1 + r.fade * 1.6; r.mesh.visible = r.fade < 1; _m.makeScale(s, s, s); r.mesh.matrix.copy(r.base).multiply(_m); }
-        else { _m.makeRotationZ(time * 0.8); r.mesh.matrix.copy(r.base).multiply(_m); }
+      feats.obst.forEach(o => {
+        let lat = o.lat || 0;
+        if (o.type === 'bar') lat = Math.sin(time * o.freq + o.phase) * o.amp;
+        if (o.type === 'gate' || o.type === 'laser') lat = 0;
+        o.mesh.matrix.copy(frameMat(o.i, lat, 0));
+        if (o.arm3d) o.arm3d.rotation.y = time * o.freq + o.phase;
+        if (o.beams) { const on = ((time + o.phase) % o.period) / o.period < o.duty; const op = on ? 0.95 : 0.1 + 0.05 * Math.sin(time * 14); o.beams.forEach(b => { b.material.opacity = op; }); }
       });
-      feats.orbs.forEach(o => { if (o.got) { o.mesh.visible = false; return; } _m.makeTranslation(0, Math.sin(time * 3 + o.i) * 0.25, 0); o.mesh.matrix.copy(_m).multiply(o.base); });
-      feats.obst.forEach(o => { const lat = world.obstLat(o, time); o.mesh.matrix.copy(frameMat(o.i, lat, 0)); });
       // weather
       const wx = world.weather;
       if (wx) {
