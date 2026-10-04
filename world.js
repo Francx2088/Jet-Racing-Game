@@ -515,10 +515,141 @@
       world.weather = { obj, base, cnt, type: wcfg.type, size, half, pos, geo };
     }
 
+    // ----- trackside: sponsor gantries over the road and billboards beside it -----
+    const SPONSORS = ['SKY RACING', 'NITRO+', 'AERO OIL', 'TURBO X', 'CLOUD 9', 'APEX', 'VELOCITY', 'JETSTREAM'];
+    const bannerTex = (txt, bg, fg, w2, h2) => canvasTex(w2 || 512, h2 || 96, (c, ww, hh) => {
+      c.fillStyle = bg; c.fillRect(0, 0, ww, hh);
+      c.fillStyle = fg; c.fillRect(0, 0, ww, hh * 0.08); c.fillRect(0, hh * 0.92, ww, hh * 0.08);
+      c.font = 'italic 900 ' + Math.round(hh * 0.62) + 'px "Saira Condensed","Arial Narrow",Impact,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = fg; c.fillText(txt, ww / 2, hh * 0.54);
+    });
+    const banners = SPONSORS.map((t, k) => new T.MeshBasicMaterial({ map: bannerTex(t, k % 2 ? '#101320' : th.rail, k % 2 ? th.rail : '#101320'), side: T.DoubleSide, fog: true }));
+    const okSpot = i => {
+      if (i < 120 || i > n - 120) return false;
+      for (let d = -14; d <= 14; d += 2) { const j = i + d; if (gap[j] || U[j * 3 + 1] < 0.85 || Math.abs(F[j * 3 + 1]) > 0.35) return false; }
+      for (const o of feats.obst) if (Math.abs(o.i - i) < 26) return false;
+      return true;
+    };
+    const trussM = new T.MeshStandardMaterial({ color: lin('#2b2f3c'), roughness: 0.45, metalness: 0.75 });
+    const neonM = new T.MeshBasicMaterial({ color: railCol });
+    let gi = 0;
+    for (let i = 260; i < n - 160; i += 300) {
+      let j = -1; for (let d = 0; d < 60; d += 4) { if (okSpot(i + d)) { j = i + d; break; } if (okSpot(i - d)) { j = i - d; break; } }
+      if (j < 0) continue;
+      const gt = new T.Group();
+      for (const sx of [-1, 1]) {
+        mk(boxG, trussM, sx * (w / 2 + 1.6), 5.8, 0, 0.9, 11.6, 0.9, gt);
+        mk(boxG, neonM, sx * (w / 2 + 1.6), 5.8, 0.46, 0.12, 11.6, 0.04, gt);
+      }
+      mk(boxG, trussM, 0, 11.2, 0, w + 4.4, 0.8, 1.1, gt);
+      const bn = new T.Mesh(new T.PlaneGeometry(w + 3.6, 2.2), banners[gi++ % banners.length]); bn.position.set(0, 9.6, 0.58); gt.add(bn);
+      const bn2 = bn.clone(); bn2.position.z = -0.58; gt.add(bn2);
+      mk(boxG, neonM, 0, 8.4, 0.58, w + 3.6, 0.12, 0.05, gt);
+      gt.matrixAutoUpdate = false; place(gt, j, 0, 0); group.add(gt);
+    }
+    const boardG = new T.PlaneGeometry(9, 3.6);
+    for (let i = 200, side = 1; i < n - 140; i += 170, side = -side) {
+      if (!okSpot(i)) continue;
+      const b = new T.Group();
+      mk(cylG, trussM, 0, 3.0, 0, 0.25, 6, 0.25, b);
+      const face = new T.Mesh(boardG, banners[(i / 170 | 0) % banners.length]); face.position.set(0, 7.3, 0); face.rotation.y = side * 0.35; b.add(face);
+      const rim = mk(boxG, neonM, 0, 5.4, 0, 9, 0.1, 0.1, b); rim.rotation.y = side * 0.35;
+      b.matrixAutoUpdate = false; place(b, i, side * (w / 2 + 5.5), 0); group.add(b);
+    }
+
+    // ----- things flying in the sky (balloons, blimps, sky traffic, ships, meteors) -----
+    const flyers = []; world.flyers = flyers;
+    const stripeTex = (a, b) => canvasTex(64, 128, (c, ww, hh) => { for (let k = 0; k < 8; k++) { c.fillStyle = k % 2 ? a : b; c.fillRect(k * ww / 8, 0, ww / 8 + 1, hh); } });
+    const addBalloons = (count, cols) => {
+      for (let k = 0; k < count; k++) {
+        const p = spot(70, 320, 20, 140, 30); if (!p) continue;
+        const gb = new T.Group();
+        const env2 = new T.Mesh(new T.SphereGeometry(7, 24, 16), new T.MeshStandardMaterial({ map: stripeTex(cols[k % cols.length], '#fff6e6'), roughness: 0.7 }));
+        env2.scale.set(1, 1.18, 1); gb.add(env2);
+        mk(new T.CylinderGeometry(2.2, 1.2, 3, 12), env2.material, 0, -8.2, 0, 1, 1, 1, gb);
+        mk(boxG, new T.MeshStandardMaterial({ color: lin('#6b4a2b'), roughness: 1 }), 0, -11.5, 0, 2, 1.6, 2, gb);
+        gb.position.copy(p); group.add(gb);
+        flyers.push({ o: gb, base: p.clone(), ph: rnd() * 6, sp: 0.15 + rnd() * 0.2, kind: 'drift' });
+      }
+    };
+    const addBlimps = count => {
+      const skin = canvasTex(256, 64, (c, ww, hh) => { c.fillStyle = '#e9edf5'; c.fillRect(0, 0, ww, hh); c.fillStyle = th.rail; c.fillRect(0, hh * 0.62, ww, hh * 0.14); c.fillStyle = '#16192a'; c.font = 'italic 900 26px "Saira Condensed",Impact,sans-serif'; c.textAlign = 'center'; c.fillText('SKY RACING', ww / 2, hh * 0.5); });
+      for (let k = 0; k < count; k++) {
+        const p = spot(120, 360, 40, 150, 50); if (!p) continue;
+        const gb = new T.Group();
+        const hull = new T.Mesh(new T.SphereGeometry(6, 28, 16), new T.MeshStandardMaterial({ map: skin, roughness: 0.5, metalness: 0.1 }));
+        hull.scale.set(4, 1, 1); hull.rotation.y = Math.PI / 2; gb.add(hull);
+        for (const [x, y, z, sx, sy, sz] of [[0, 4, 20, 0.3, 6, 5], [0, -4, 20, 0.3, 6, 5], [4, 0, 20, 6, 0.3, 5], [-4, 0, 20, 6, 0.3, 5]]) mk(boxG, new T.MeshStandardMaterial({ color: lin(th.rail) }), x, y, z, sx, sy, sz, gb);
+        mk(boxG, new T.MeshStandardMaterial({ color: lin('#30343f') }), 0, -6.4, 0, 2.4, 1.6, 6, gb);
+        gb.position.copy(p); group.add(gb);
+        flyers.push({ o: gb, base: p.clone(), ph: rnd() * 6, sp: 0.03 + rnd() * 0.03, r: 60 + rnd() * 80, kind: 'orbit' });
+      }
+    };
+    const addTraffic = (count, glow) => {
+      const body = new T.MeshStandardMaterial({ color: lin('#1a1d2b'), roughness: 0.3, metalness: 0.8 });
+      const lit = new T.MeshBasicMaterial({ color: lin(glow) }), tail = new T.MeshBasicMaterial({ color: lin('#ff2a3a') });
+      for (let k = 0; k < count; k++) {
+        const p = spot(40, 260, 10, 90, 20); if (!p) continue;
+        const gb = new T.Group();
+        mk(boxG, body, 0, 0, 0, 2.2, 0.8, 4.6, gb); mk(boxG, lit, 0, 0, -2.32, 1.8, 0.18, 0.05, gb); mk(boxG, tail, 0, 0, 2.32, 1.8, 0.18, 0.05, gb);
+        mk(boxG, lit, 0, -0.45, 0, 1.6, 0.05, 3.6, gb);
+        gb.position.copy(p); group.add(gb);
+        flyers.push({ o: gb, base: p.clone(), ph: rnd() * 6, sp: 0.25 + rnd() * 0.3, r: 120 + rnd() * 200, kind: 'orbit', face: true });
+      }
+    };
+    const addShips = count => {
+      const hullM = new T.MeshStandardMaterial({ color: lin('#c9cfdc'), roughness: 0.35, metalness: 0.8, envMap: world.env });
+      const jet = new T.MeshBasicMaterial({ color: lin('#7df9ff'), blending: T.AdditiveBlending, transparent: true, depthWrite: false });
+      for (let k = 0; k < count; k++) {
+        const p = spot(80, 420, -60, 160, 30); if (!p) continue;
+        const gb = new T.Group();
+        const nose = mk(new T.ConeGeometry(1.4, 7, 10), hullM, 0, 0, 0, 1, 1, 1, gb); nose.rotation.x = -Math.PI / 2;
+        mk(boxG, hullM, 0, 0, 1.5, 9, 0.3, 2.4, gb);
+        const fl = mk(new T.ConeGeometry(0.9, 4, 10), jet, 0, 0, 5.2, 1, 1, 1, gb); fl.rotation.x = -Math.PI / 2;
+        gb.position.copy(p); group.add(gb);
+        flyers.push({ o: gb, base: p.clone(), ph: rnd() * 6, sp: 0.2 + rnd() * 0.25, r: 150 + rnd() * 250, kind: 'orbit', face: true });
+      }
+    };
+    const addMeteors = count => {
+      const rock = new T.MeshStandardMaterial({ color: lin('#2a120a'), emissive: lin('#ff4a10'), emissiveIntensity: 0.9, roughness: 1, flatShading: true });
+      const tailM = new T.MeshBasicMaterial({ color: lin('#ff8a30'), blending: T.AdditiveBlending, transparent: true, opacity: 0.55, depthWrite: false });
+      for (let k = 0; k < count; k++) {
+        const p = spot(80, 400, 120, 260, 30); if (!p) continue;
+        const gb = new T.Group();
+        mk(rough(new T.IcosahedronGeometry(3, 0), 0.8, 90 + k), rock, 0, 0, 0, 1, 1, 1, gb);
+        const tl = mk(new T.CylinderGeometry(2.6, 0.1, 30, 8, 1, true), tailM, 0, 15, 0, 1, 1, 1, gb);
+        gb.rotation.z = 0.5; group.add(gb);
+        flyers.push({ o: gb, base: p.clone(), ph: rnd() * 10, sp: 1, kind: 'fall' });
+      }
+    };
+    if (kind === 'islands') { addBalloons(12, ['#ff6a3d', '#ffb347', '#3dbbff', '#ff4b8f']); addBlimps(1); }
+    else if (kind === 'islands2') { addBlimps(4); addBalloons(6, ['#ff4b3a', '#2f8fff', '#ffd23a']); }
+    else if (kind === 'towers') addTraffic(26, '#7df9ff');
+    else if (kind === 'storm') addBlimps(2);
+    else if (kind === 'mesas') { addBalloons(8, ['#ff6a3d', '#2a74cf', '#ffd23a', '#18c46b']); addBlimps(2); }
+    else if (kind === 'ice') { addBlimps(3); addBalloons(5, ['#ff3b30', '#2f8fff']); }
+    else if (kind === 'space') addShips(12);
+    else if (kind === 'lava') addMeteors(10);
+    const updateFlyers = (time, dt) => {
+      for (const f of flyers) {
+        if (f.kind === 'drift') f.o.position.set(f.base.x + Math.sin(time * f.sp + f.ph) * 6, f.base.y + Math.sin(time * f.sp * 1.7 + f.ph) * 3, f.base.z + Math.cos(time * f.sp + f.ph) * 6);
+        else if (f.kind === 'orbit') {
+          const a = time * f.sp + f.ph, x = f.base.x + Math.cos(a) * f.r, z = f.base.z + Math.sin(a) * f.r;
+          f.o.position.set(x, f.base.y + Math.sin(a * 2) * 4, z);
+          f.o.rotation.y = -a + (f.face ? 0 : Math.PI / 2);
+        } else if (f.kind === 'fall') {
+          const t = ((time * 0.12 + f.ph) % 1);
+          f.o.position.set(f.base.x - t * 160, f.base.y - t * 320, f.base.z);
+          f.o.visible = t < 0.95;
+        }
+      }
+    };
+
     // ----- per-frame -----
     const tmp = V3();
     world.update = function (dt, time, cam, vel) {
       sky.position.copy(cam.position);
+      updateFlyers(time, dt);
       sky.material.uniforms.time.value = time;
       padTex.offset.y = -time * 1.6;
       if (world.lavaTex) { world.lavaTex.offset.x = time * 0.004; world.lavaTex.offset.y = time * 0.006; }

@@ -16,9 +16,9 @@
   });
 
   /* ---------------- save data ---------------- */
-  let save = { unlocked: 1, best: {}, sound: true, done: false };
-  try { const s = JSON.parse(localStorage.getItem('skyracing.v1')); if (s) save = Object.assign(save, s); } catch (e) { /* ignore */ }
-  const persist = () => { try { localStorage.setItem('skyracing.v1', JSON.stringify(save)); } catch (e) { /* ignore */ } };
+  let save = { reached: 1, best: {}, sound: true, done: false };
+  try { const s = JSON.parse(localStorage.getItem('skyracing.v2')); if (s) save = Object.assign(save, s); } catch (e) { /* ignore */ }
+  const persist = () => { try { localStorage.setItem('skyracing.v2', JSON.stringify(save)); } catch (e) { /* ignore */ } };
 
   /* ---------------- renderer ---------------- */
   const canvas = $('c');
@@ -36,13 +36,6 @@
     camera.aspect = w / h; camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize); resize();
-
-  // speed lines (child of the camera)
-  const SL = 70, slPos = new Float32Array(SL * 6), slSeed = [];
-  for (let i = 0; i < SL; i++) { const a = Math.random() * 6.28, r = 2.5 + Math.random() * 9; slSeed.push({ x: Math.cos(a) * r, y: Math.sin(a) * r * 0.7, z: -(4 + Math.random() * 56) }); }
-  const slGeo = new T.BufferGeometry(); slGeo.setAttribute('position', new T.BufferAttribute(slPos, 3));
-  const slMat = new T.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, fog: false });
-  const speedLines = new T.LineSegments(slGeo, slMat); speedLines.frustumCulled = false; camera.add(speedLines);
 
   // sparks
   const SP = 60, spPos = new Float32Array(SP * 3), spVel = [], spLife = new Float32Array(SP);
@@ -65,6 +58,73 @@
       spPos[i * 3] += spVel[i].x * dt; spPos[i * 3 + 1] += spVel[i].y * dt; spPos[i * 3 + 2] += spVel[i].z * dt;
     }
     spGeo.attributes.position.needsUpdate = true;
+  }
+
+  // nitro light trails from the tail lights (every car)
+  const TRAIL_N = 22;
+  const trailMat = new T.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
+  function makeTrail() {
+    const pos = new Float32Array(TRAIL_N * 4 * 3), col = new Float32Array(TRAIL_N * 4 * 3), idx = [];
+    for (let t = 0; t < 2; t++) for (let k = 0; k < TRAIL_N - 1; k++) { const b = (t * TRAIL_N + k) * 2; idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+    const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(pos, 3)); g.setAttribute('color', new T.BufferAttribute(col, 3)); g.setIndex(idx);
+    const mesh = new T.Mesh(g, trailMat); mesh.frustumCulled = false; mesh.visible = false; scene.add(mesh);
+    return { mesh, pts: [[], []], a: 0 };
+  }
+  function dropTrail(c) { if (c.trail) { scene.remove(c.trail.mesh); c.trail.mesh.geometry.dispose(); } }
+  const _tl = V3(), _tr = V3();
+  function updateTrails(dt) {
+    for (const c of state.cars) {
+      const tr = c.trail; if (!tr) continue;
+      tr.a += ((c.nitroOn ? 1 : 0) - tr.a) * (1 - Math.exp(-6 * dt));
+      c.mesh.updateMatrixWorld();
+      _tr.setFromMatrixColumn(c.mesh.matrixWorld, 0).normalize();
+      for (let t = 0; t < 2; t++) {
+        const p = c.mesh.localToWorld(_tl.set((t ? 1 : -1) * c.dims.W * 0.3, c.style.tailH - 0.12, c.dims.L + 0.05));
+        tr.pts[t].unshift(p.clone()); if (tr.pts[t].length > TRAIL_N) tr.pts[t].pop();
+      }
+      tr.mesh.visible = tr.a > 0.02;
+      if (!tr.mesh.visible) continue;
+      const P = tr.mesh.geometry.attributes.position.array, C = tr.mesh.geometry.attributes.color.array;
+      for (let t = 0; t < 2; t++) for (let k = 0; k < TRAIL_N; k++) {
+        const q = tr.pts[t][Math.min(k, tr.pts[t].length - 1)], f = 1 - k / TRAIL_N, w = 0.2 * f + 0.03, b = (t * TRAIL_N + k) * 2;
+        P[b * 3] = q.x - _tr.x * w; P[b * 3 + 1] = q.y - _tr.y * w; P[b * 3 + 2] = q.z - _tr.z * w;
+        P[b * 3 + 3] = q.x + _tr.x * w; P[b * 3 + 4] = q.y + _tr.y * w; P[b * 3 + 5] = q.z + _tr.z * w;
+        const i = tr.a * f * f;
+        for (const o of [0, 3]) { C[b * 3 + o] = 0.25 * i; C[b * 3 + o + 1] = 0.8 * i; C[b * 3 + o + 2] = 1.0 * i; }
+      }
+      tr.mesh.geometry.attributes.position.needsUpdate = true; tr.mesh.geometry.attributes.color.needsUpdate = true;
+    }
+  }
+  // finish-line fireworks
+  const FW = 420, fwPos = new Float32Array(FW * 3), fwCol = new Float32Array(FW * 3), fwVel = [], fwLife = new Float32Array(FW), fwBase = [];
+  for (let i = 0; i < FW; i++) { fwVel.push(V3(0, 0, 0)); fwBase.push(new T.Color()); fwPos[i * 3 + 1] = -99999; }
+  const fwGeo = new T.BufferGeometry(); fwGeo.setAttribute('position', new T.BufferAttribute(fwPos, 3)); fwGeo.setAttribute('color', new T.BufferAttribute(fwCol, 3));
+  const fireworks = new T.Points(fwGeo, new T.PointsMaterial({ size: 0.9, vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false }));
+  fireworks.frustumCulled = false; scene.add(fireworks);
+  let fwIdx = 0; const fwQueue = [];
+  function burst(p, hex) {
+    const c = new T.Color(hex);
+    for (let k = 0; k < 70; k++) {
+      const i = fwIdx++ % FW; fwLife[i] = 1.2 + Math.random() * 0.6; fwBase[i].copy(c);
+      fwPos[i * 3] = p.x; fwPos[i * 3 + 1] = p.y; fwPos[i * 3 + 2] = p.z;
+      const th = Math.random() * 6.28, ph = Math.acos(2 * Math.random() - 1), sp = 9 + Math.random() * 6;
+      fwVel[i].set(Math.sin(ph) * Math.cos(th) * sp, Math.cos(ph) * sp, Math.sin(ph) * Math.sin(th) * sp);
+    }
+  }
+  function celebrate() {
+    const w = state.world; frameAt(w.track.finishS + 30, fr);
+    const cols = ['#ffc247', '#33d6ff', '#ff4b8f', '#7dff6a', '#ffffff'];
+    for (let k = 0; k < 7; k++) fwQueue.push({ t: k * 0.32, p: fr.p.clone().addScaledVector(fr.u, 14 + Math.random() * 8).addScaledVector(fr.r, (Math.random() - 0.5) * 26).addScaledVector(fr.f, Math.random() * 20), c: cols[k % cols.length] });
+  }
+  function updateFireworks(dt) {
+    for (let q = fwQueue.length - 1; q >= 0; q--) { fwQueue[q].t -= dt; if (fwQueue[q].t <= 0) { burst(fwQueue[q].p, fwQueue[q].c); if (q === 0 || Math.random() < 0.5) audio.tone(90 + Math.random() * 40, 0.4, 'sawtooth', 0.06, 40); fwQueue.splice(q, 1); } }
+    for (let i = 0; i < FW; i++) {
+      if (fwLife[i] <= 0) { fwPos[i * 3 + 1] = -99999; continue; }
+      fwLife[i] -= dt; fwVel[i].multiplyScalar(Math.exp(-1.6 * dt)); fwVel[i].y -= 6 * dt;
+      fwPos[i * 3] += fwVel[i].x * dt; fwPos[i * 3 + 1] += fwVel[i].y * dt; fwPos[i * 3 + 2] += fwVel[i].z * dt;
+      const f = Math.min(1, fwLife[i]); fwCol[i * 3] = fwBase[i].r * f; fwCol[i * 3 + 1] = fwBase[i].g * f; fwCol[i * 3 + 2] = fwBase[i].b * f;
+    }
+    fwGeo.attributes.position.needsUpdate = true; fwGeo.attributes.color.needsUpdate = true;
   }
 
   /* ---------------- audio ---------------- */
@@ -116,8 +176,8 @@
   };
 
   /* ---------------- input ---------------- */
-  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: hold anywhere and slide left / right.
-  const input = { left: false, right: false, kl: false, kr: false, analog: 0 };
+  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: swipe left / right anywhere.
+  const input = { left: false, right: false, kl: false, kr: false, analog: 0, touching: false, swipeDX: 0 };
   let touchSeen = false;
   function isTouchDevice() {
     const mm = q => window.matchMedia && window.matchMedia(q).matches;
@@ -140,7 +200,7 @@
     if (isRight(e.key)) input.kr = true;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') togglePause();
-    if (e.key === 'Enter' && state.mode === 'menu' && !$('menu').classList.contains('hidden')) $('playBtn').click();
+    if (e.key === 'Enter' && state.mode === 'menu' && !$('menu').classList.contains('hidden')) startLevel(0);
   });
   window.addEventListener('keyup', e => {
     if (isLeft(e.key)) input.kl = false;
@@ -161,26 +221,16 @@
   arrows.addEventListener('pointerup', e => { if (e.pointerId === arrowId) arrowClear(); });
   arrows.addEventListener('pointercancel', arrowClear); arrows.addEventListener('lostpointercapture', arrowClear);
 
-  // portrait: put a thumb down anywhere, slide right to go right and left to go left.
-  // The anchor follows the thumb once it passes full lock, so reversing direction reacts at once.
-  const ring = $('touchRing'), ringDot = ring.firstElementChild;
-  let dragId = null, dragX0 = 0;
-  const steerRange = () => Math.max(46, window.innerWidth * 0.16);
-  function dragSet(x, y) {
-    const max = steerRange();
-    if (x - dragX0 > max) dragX0 = x - max; else if (dragX0 - x > max) dragX0 = x + max;
-    const v = (x - dragX0) / max;
-    input.analog = Math.abs(v) < 0.05 ? 0 : Math.sign(v) * (0.55 * Math.abs(v) + 0.45 * v * v);
-    ring.style.transform = 'translate(' + dragX0 + 'px,' + y + 'px)';
-    ringDot.style.transform = 'translateX(' + (v * 34) + 'px)';
-  }
-  function dragEnd(e) { if (e && e.pointerId !== dragId) return; dragId = null; input.analog = 0; ring.classList.remove('on'); }
+  // portrait: swipe. Moving a finger left moves the car left, moving it right moves the car right,
+  // anywhere on the screen; the car follows the swipe and holds that line when the finger stops.
+  let dragId = null, dragLastX = 0;
   window.addEventListener('pointerdown', e => {
     if (state.layout !== 'ctl-portrait' || (state.mode !== 'race' && state.mode !== 'countdown') || state.paused || dragId !== null) return;
     if (e.target.closest && e.target.closest('button,.screen')) return;
-    dragId = e.pointerId; dragX0 = e.clientX; ring.classList.add('on'); dragSet(e.clientX, e.clientY);
+    dragId = e.pointerId; dragLastX = e.clientX; input.touching = true; input.swipeDX = 0;
   });
-  window.addEventListener('pointermove', e => { if (e.pointerId === dragId) dragSet(e.clientX, e.clientY); });
+  window.addEventListener('pointermove', e => { if (e.pointerId === dragId) { input.swipeDX += e.clientX - dragLastX; dragLastX = e.clientX; } });
+  const dragEnd = e => { if (e.pointerId !== dragId) return; dragId = null; input.touching = false; input.swipeDX = 0; };
   window.addEventListener('pointerup', dragEnd); window.addEventListener('pointercancel', dragEnd);
 
   /* ---------------- game state ---------------- */
@@ -204,7 +254,7 @@
   function loadWorld(idx) {
     if (state.world && state.levelIdx === idx && state.world.built) return;
     if (state.world) { scene.remove(state.world.group); state.world.dispose(); }
-    state.cars.forEach(c => { scene.remove(c.mesh); window.SkyCars.dispose(c.mesh); }); state.cars = [];
+    state.cars.forEach(c => { scene.remove(c.mesh); window.SkyCars.dispose(c.mesh); dropTrail(c); }); state.cars = [];
     const w = SkyWorld.build(idx, renderer);
     w.built = true;
     scene.add(w.group);
@@ -219,13 +269,13 @@
     const w = state.world;
     const mesh = window.SkyCars.build(style, color, { env: w.env, detail: isPlayer ? 'high' : 'low', glow: isPlayer ? w.th.road.edge : color });
     scene.add(mesh);
-    return { mesh, parts: mesh.userData.parts, dims: mesh.userData.dims, style, color, isPlayer, name, s: 0, lat: 0, latV: 0, speed: 0, steerS: 0, nitro: 0, nitroOn: false, slowT: 0, slowF: 1, bumpCd: 0, wallCd: 0,
+    return { trail: makeTrail(), mesh, parts: mesh.userData.parts, dims: mesh.userData.dims, style, color, isPlayer, name, s: 0, lat: 0, latV: 0, speed: 0, steerS: 0, nitro: 0, nitroOn: false, slowT: 0, slowF: 1, bumpCd: 0, wallCd: 0,
       fr: 0, padTarget: null, padSeen: new Set(), react: 60, padSeek: 0.8, margin: 1.4, rnd: Math.random, yawVis: 0, spin: 0, hitCd: 0, padCd: 0, finished: false, finishTime: 0, skill: 1, lane0: 0, laneF: 1, laneAmp: 0, ph: 0, wheelRot: 0, scrape: 0, draft: 0, combo: 0 };
   }
 
   function spawnRace(demo) {
     const w = state.world, L = w.L;
-    state.cars.forEach(c => { scene.remove(c.mesh); window.SkyCars.dispose(c.mesh); }); state.cars = [];
+    state.cars.forEach(c => { scene.remove(c.mesh); window.SkyCars.dispose(c.mesh); dropTrail(c); }); state.cars = [];
     const cars = [];
     const pStyle = CARS[L.car];
     const player = makeCar(pStyle, pStyle.color, true, 'YOU');
@@ -291,7 +341,12 @@
     const kAhead = tr.kappa[Math.min(tr.n - 2, Math.floor(c.s / DS) + 14)] || 0;
     // ---- lateral ----
     if (c.isPlayer && !drive) {
-      const want = input.analog ? clamp(input.analog, -1, 1) : clamp((input.right || input.kr ? 1 : 0) - (input.left || input.kl ? 1 : 0), -1, 1);
+      let want = clamp((input.right || input.kr ? 1 : 0) - (input.left || input.kl ? 1 : 0), -1, 1);
+      if (input.touching) {                                   // swipe: steer towards the line the finger asked for
+        const gain = L.width * 0.9 / Math.max(200, window.innerWidth * 0.55);
+        c.swipeT = clamp((c.swipeT === undefined ? c.lat : c.swipeT) + input.swipeDX * gain, -halfW, halfW); input.swipeDX = 0;
+        want = clamp((c.swipeT - c.lat) * 0.6, -1, 1);
+      } else c.swipeT = c.lat;
       c.steerS += (want - c.steerS) * (1 - Math.exp(-11 * dt));
       const grip = clamp(0.55 + c.speed / 220, 0.55, 1.0);
       c.latV += c.steerS * 52 * grip * (M.ice ? 0.75 : 1) * dt;
@@ -464,7 +519,8 @@
 
   /* ---------------- camera ---------------- */
   const cam = { pos: V3(), look: V3(), up: V3(0, 1, 0), fov: 70, shake: 0, init: false };
-  const _a = V3(), _b = V3(), _c = V3(), _vel = V3(), _prev = V3();
+  const _a = V3(), _b = V3(), _c = V3(), _vel = V3(), _prev = V3(), WORLD_UP = V3(0, 1, 0);
+  const frA = { p: V3(), f: V3(), u: V3(), r: V3(), k: 0, i: 0 }, frB = { p: V3(), f: V3(), u: V3(), r: V3(), k: 0, i: 0 };
   function kick(a) { cam.shake = Math.max(cam.shake, a); }
   function updateCamera(dt) {
     const p = state.player, w = state.world;
@@ -492,14 +548,20 @@
       lookAt = _b.copy(car).addScaledVector(fr.u, 1);
       fovT = 62;
     } else {
-      const back = 8.2 + sf * 1.2 + (p.nitroOn ? 1.4 : 0), h = 3.1 + sf * 0.2;
-      desiredPos = _a.copy(car).addScaledVector(fr.f, -back).addScaledVector(fr.u, h).addScaledVector(fr.r, -p.lat * 0.18);
-      lookAt = _b.copy(car).addScaledVector(fr.f, 13).addScaledVector(fr.u, 1.2);
-      fovT = 66 + sf * 14 + (p.nitroOn ? 12 : 0);
+      // chase cam: rides the road behind the car and aims at the road ahead, so it leans into every corner
+      const boost = p.nitroOn ? 1 : 0, tall = camera.aspect < 1;
+      const back = (tall ? 8.4 : 7.0) + sf * 1.3 + boost * 1.1, h = (tall ? 3.2 : 2.45) + sf * 0.2;
+      frameAt(p.s - back, frB);
+      desiredPos = _a.copy(frB.p).addScaledVector(frB.r, p.lat * 0.85).addScaledVector(frB.u, h);
+      frameAt(p.s + 15 + sf * 6, frA);
+      lookAt = _b.copy(frA.p).addScaledVector(frA.r, p.lat * 0.55).addScaledVector(frA.u, tall ? 0.6 : 0.95);
+      frameAt(p.s, fr);
+      up.copy(fr.u).lerp(WORLD_UP, 0.35 * Math.max(0, fr.u.y)).normalize();      // keep the horizon calmer on banked turns
+      fovT = 63 + sf * 11 + boost * 7;
     }
     if (state.debugCam) { const o = state.debugCam; desiredPos = _a.copy(car).addScaledVector(fr.r, o[0]).addScaledVector(fr.u, o[1]).addScaledVector(fr.f, o[2]); lookAt = _b.copy(car).addScaledVector(fr.u, 0.7); fovT = o[3] || 45; cam.init = false; }
     if (!cam.init) { cam.pos.copy(desiredPos); cam.look.copy(lookAt); cam.up.copy(up); cam.fov = fovT; cam.init = true; }
-    const kp = state.mode === 'race' ? 1 - Math.exp(-13 * dt) : 1 - Math.exp(-6 * dt);
+    const kp = state.mode === 'race' ? 1 - Math.exp(-9 * dt) : 1 - Math.exp(-6 * dt);
     cam.pos.lerp(desiredPos, kp); cam.look.lerp(lookAt, 1 - Math.exp(-14 * dt)); cam.up.lerp(up, 1 - Math.exp(-5 * dt)).normalize(); cam.fov += (fovT - cam.fov) * (1 - Math.exp(-4 * dt));
     camera.position.copy(cam.pos);
     if (cam.shake > 0.001) { const s = cam.shake * 0.35; camera.position.x += (Math.random() - 0.5) * s; camera.position.y += (Math.random() - 0.5) * s; camera.position.z += (Math.random() - 0.5) * s; cam.shake *= Math.exp(-7 * dt); }
@@ -508,29 +570,17 @@
     const portrait = camera.aspect < 1;
     camera.fov = portrait ? clamp(cam.fov * 1.32, 60, 100) : cam.fov;
     // nudge the view so the car clears the on-screen controls
-    const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.05 : state.layout === 'ctl-portrait' ? 0 : 0.03;
+    const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.05 : state.layout === 'ctl-portrait' ? -0.13 : 0.03;
     const vw = window.innerWidth, vh = window.innerHeight;
-    if (shift) camera.setViewOffset(vw, vh, 0, Math.round(vh * shift), vw, vh); else camera.clearViewOffset();
+    if (shift !== 0) camera.setViewOffset(vw, vh, 0, Math.round(vh * shift), vw, vh); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
     // camera velocity for weather streaks
     _vel.copy(camera.position).sub(_prev).divideScalar(Math.max(dt, 1e-3)); _prev.copy(camera.position);
   }
-  function updateSpeedLines(dt) {
-    const p = state.player, spd = state.mode === 'race' || state.mode === 'menu' ? p.speed : 0;
-    const f = clamp((spd - 30) / 90, 0, 1) + (p.nitroOn ? 0.4 : 0);
-    slMat.opacity = clamp(f * 0.35, 0, 0.5);
-    const len = 2 + spd * 0.06;
-    for (let i = 0; i < SL; i++) {
-      const s = slSeed[i]; s.z += spd * dt * 0.9; if (s.z > -2) s.z = -60 - Math.random() * 10;
-      slPos[i * 6] = s.x; slPos[i * 6 + 1] = s.y; slPos[i * 6 + 2] = s.z;
-      slPos[i * 6 + 3] = s.x; slPos[i * 6 + 4] = s.y; slPos[i * 6 + 5] = s.z - len;
-    }
-    slGeo.attributes.position.needsUpdate = true;
-  }
-
   /* ---------------- HUD ---------------- */
   const hud = { pos: $('pos'), time: $('time'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), intro: $('intro'), nitroBox: $('nitroBox') };
   let lastPos = -1;
+  const lights = [...document.querySelectorAll('#lights i')];
   function toast(txt, color) { hud.toast.textContent = txt; hud.toast.style.color = color || '#fff'; hud.toast.classList.remove('show'); void hud.toast.offsetWidth; hud.toast.classList.add('show'); }
   function flash(a) { hud.flash.style.opacity = a; setTimeout(() => { hud.flash.style.opacity = 0; }, 90); }
   const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
@@ -597,7 +647,7 @@
     state.stats.top = Math.max(state.stats.top, kmh);
     updateGauges(kmh, p.nitro, p.nitroOn);
     hud.time.textContent = fmt(state.raceT);
-    hud.vig.style.opacity = p.nitroOn ? 0.9 : 0;
+    hud.vig.style.opacity = p.nitroOn ? 0.45 : 0;
     drawMini();
   }
 
@@ -638,15 +688,15 @@
   }
   function startMenuDemo() {
     state.mode = 'menu'; state.demo = true; cam.init = false;
-    loadWorld(Math.min(save.unlocked, 8) - 1);
+    loadWorld(0);
     spawnRace(true);
     state.leadS = state.world.track.startS + 120; state.time = 0;
     show('hud', false); show('menu', true); show('levels', false); show('result', false); show('pauseScr', false);
-    const cur = Math.min(save.unlocked, 8), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
-    $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.done || i + 1 < cur ? 'done' : i + 1 === cur ? 'now' : '') + '"></i>').join('');
-    $('menuBest').textContent = save.done ? 'All 8 tracks cleared · ' + stars + ' / 24 ★ · pick any track to race again.'
-      : cur > 1 ? 'Career: track ' + cur + ' of 8 · ' + stars + ' ★. Finish top 3 to move on.' : 'Hit the boost pads for nitro, dodge the hazards, finish top 3.';
-    setBtn('playBtn', save.done ? 'Choose track' : cur > 1 ? 'Continue · Track ' + cur : 'Play');
+    const reached = Math.min(save.reached || 1, 8), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
+    $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.done || i + 1 < reached ? 'done' : i + 1 === reached ? 'now' : '') + '"></i>').join('');
+    $('menuBest').textContent = save.done ? 'Career complete · ' + stars + ' / 24 ★ · Tracks is open: pick any track.'
+      : reached > 1 ? 'Every race starts at Track 1 · your best run reached Track ' + reached + '.' : 'Start at Track 1, finish top 3 to go on. Reach Track 8 to open Tracks.';
+    setBtn('playBtn', 'Play');
   }
   function setBtn(id, txt) { $(id).querySelector('span').textContent = txt; }
 
@@ -659,8 +709,9 @@
       state.mode = 'countdown'; state.countT = 0; state.lastCount = 4; state.lastBeep = 4; cam.init = false; state.paused = false;
       show('menu', false); show('levels', false); show('result', false); show('pauseScr', false); show('hud', true);
       const L = state.world.L;
-      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + (state.layout === 'ctl-portrait' ? ' · hold &amp; slide to steer' : state.layout === 'ctl-desktop' ? ' · ← → to steer' : '') + '</div>';
+      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + (state.layout === 'ctl-portrait' ? ' · swipe left / right to steer' : state.layout === 'ctl-desktop' ? ' · ← → to steer' : '') + '</div>';
       hud.count.textContent = ''; hud.time.textContent = '0:00.0'; lastPos = -1;
+      state.lastLit = -1; lights.forEach(el => el.classList.remove('on')); $('lights').classList.remove('go'); $('lights').classList.add('show');
       updateCamera(0.016); placeAll(0.016);
     });
   }
@@ -671,7 +722,7 @@
     state.mode = 'finish'; state.finishT = 0;
     const place = state.cars.filter(c => c.finished).length;  // player already flagged finished
     p.place = place;
-    audio.fin(); hud.intro.innerHTML = ''; toast(place === 1 ? 'VICTORY!' : 'FINISH!', '#ffe45c');
+    audio.fin(); celebrate(); hud.intro.innerHTML = ''; toast(place === 1 ? 'VICTORY!' : 'FINISH!', '#ffe45c');
     setTimeout(showResult, 1700);
   }
   function showResult() {
@@ -685,8 +736,8 @@
     save.best[L.id] = { time: place <= 3 ? Math.min(prev.time || 1e9, p.finishTime) : prev.time, stars: Math.max(prev.stars || 0, stars), place: Math.min(prev.place || 9, place) };
     if (!save.best[L.id].time) delete save.best[L.id].time;
     const passed = place <= 3;
-    if (passed && idx < 7 && idx + 2 > save.unlocked) save.unlocked = idx + 2;
-    if (passed && idx === 7) save.done = true;
+    if (passed && idx < 7) save.reached = Math.max(save.reached || 1, idx + 2);
+    if (idx === 7) save.done = true;                       // raced the last track: free track select opens
     persist();
     $('resLevel').textContent = 'Track ' + L.id + ' · ' + L.name;
     $('resPlace').innerHTML = place + '<sup>' + ['ST', 'ND', 'RD', 'TH', 'TH', 'TH'][place - 1] + '</sup>';
@@ -694,8 +745,8 @@
     const best = save.best[L.id].time;
     const rows = [['Time', fmt(p.finishTime)], ['Best', best ? fmt(best) + (newBest && passed ? ' NEW' : '') : '—'], ['Top speed', Math.round(state.stats.top) + ' km/h'], ['Nitro pads', state.stats.boosts], ['Crashes', state.stats.crashes]];
     $('resStats').innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
-    $('resMsg').textContent = !passed ? 'Finish in the top 3 to unlock the next track.'
-      : idx === 7 ? 'Career complete! Every track is now open to replay.' : save.done ? 'Podium finish.' : 'Podium! Track ' + (idx + 2) + ' is next.';
+    $('resMsg').textContent = idx === 7 ? 'You reached the last track! Tracks is now open: pick any track to race.'
+      : !passed ? 'Finish in the top 3 to go on to Track ' + (idx + 2) + '.' : 'Podium! Track ' + (idx + 2) + ' is next.';
     $('nextBtn').style.display = passed && idx < 7 ? '' : 'none';
     setBtn('nextBtn', 'Next track ▶');
     show('hud', false); show('result', true);
@@ -728,15 +779,13 @@
     } else if (state.mode === 'countdown') {
       state.countT += dt;
       const n = Math.ceil(3.4 - state.countT);
-      if (n !== state.lastCount && n <= 3) {
-        state.lastCount = n;
-        hud.count.textContent = n > 0 ? n : 'GO!'; hud.count.classList.remove('tick'); void hud.count.offsetWidth; hud.count.classList.add('tick');
-      }
+      const lit = clamp(Math.floor((state.countT - 0.4) / 0.6) + 1, 0, 5);
+      if (lit !== state.lastLit) { state.lastLit = lit; lights.forEach((el, k) => el.classList.toggle('on', k < lit)); if (lit > 0) audio.beep(false); }
       if (state.countT >= 3.4) {
         state.mode = 'race'; hud.count.textContent = 'GO!'; hud.count.classList.remove('tick'); void hud.count.offsetWidth; hud.count.classList.add('tick');
-        audio.beep(true); hud.intro.innerHTML = ''; setTimeout(() => { if (state.mode === 'race') hud.count.textContent = ''; }, 800);
+        audio.beep(true); hud.intro.innerHTML = ''; $('lights').classList.add('go'); setTimeout(() => { if (state.mode === 'race') hud.count.textContent = ''; $('lights').classList.remove('show', 'go'); }, 900);
         state.cars.forEach(c => { c.speed = 8; });
-      } else if (n !== state.lastBeep && n > 0) { state.lastBeep = n; audio.beep(false); }
+      }
       placeAll(dt); updateCamera(dt); updateHUD();
       audio.engine(0.05 + (state.countT > 2.8 ? 0.2 : 0), false, true);
     } else if (state.mode === 'race' || state.mode === 'finish') {
@@ -762,7 +811,7 @@
       audio.engine(clamp(p.speed / (w.L.base * 1.5), 0, 1), p.nitroOn, true);
     }
     w.update(dt, state.time, camera, _vel);
-    updateSparks(dt); updateSpeedLines(dt);
+    updateSparks(dt); updateTrails(dt); updateFireworks(dt);
   }
 
   // simple autopilot used by the headless tests (window.SkyGame.autoplay): drives like a rival, minus the rubber band
@@ -771,25 +820,25 @@
   /* ---------------- UI wiring ---------------- */
   // career: tracks unlock one after another and only the next one can be raced, until all 8 are cleared
   function buildLevelGrid() {
-    const g = $('grid'), cur = Math.min(save.unlocked, 8); g.innerHTML = '';
-    $('gridNote').textContent = save.done ? 'Free play · all tracks open' : 'Career · clear every track to unlock free play';
+    const g = $('grid'); g.innerHTML = '';
+    $('gridNote').textContent = save.done ? 'Free play · pick any track' : 'Track 1 is always open · reach Track 8 in a run to unlock the rest';
     LEVELS.forEach((L, i) => {
-      const n = i + 1, open = save.done || n === cur, cleared = save.done || n < cur;
+      const open = save.done || i === 0;
       const c = document.createElement('button');
-      c.className = 'card' + (open ? (save.done ? '' : ' next') : cleared ? ' cleared' : ' locked');
+      c.className = 'card' + (open ? (save.done ? '' : ' next') : ' locked');
       const s = L.theme.sky; c.style.background = 'linear-gradient(180deg,' + s.top + ',' + s.mid + ' 60%,' + s.hor + ')';
       const b = save.best[L.id], stars = b ? b.stars : 0;
-      const chip = !save.done && n === cur ? '<span class="chip next">NEXT</span>' : cleared ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : '<span class="chip">🔒</span>';
+      const chip = open ? (b ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : (save.done ? '' : '<span class="chip next">START</span>')) : '<span class="chip">🔒</span>';
       c.innerHTML = '<div class="n">' + L.id + '</div>' + chip + '<div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
       if (!open) c.setAttribute('aria-disabled', 'true');
       c.addEventListener('click', () => {
         if (open) startLevel(i);
-        else $('gridNote').textContent = cleared ? 'Cleared! Finish all 8 tracks to replay any of them.' : 'Locked · finish track ' + cur + ' first.';
+        else $('gridNote').textContent = 'Locked · play from Track 1 and reach Track 8 to pick tracks freely.';
       });
       g.appendChild(c);
     });
   }
-  $('playBtn').addEventListener('click', () => { if (save.done) { buildLevelGrid(); show('menu', false); show('levels', true); } else startLevel(Math.min(save.unlocked, 8) - 1); });
+  $('playBtn').addEventListener('click', () => startLevel(0));
   $('levelsBtn').addEventListener('click', () => { buildLevelGrid(); show('menu', false); show('levels', true); });
   $('levelsBack').addEventListener('click', () => { if (state.mode !== 'menu') { startMenuDemo(); return; } show('levels', false); show('menu', true); });
   $('soundBtn').addEventListener('click', () => { audio.init(); audio.setMute(save.sound); setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off'); });

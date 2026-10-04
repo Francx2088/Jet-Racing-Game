@@ -120,15 +120,24 @@
     }
   ];
 
+  // Race cars. u runs -1 (nose) .. +1 (tail); cab = [windshield base, roof front, roof rear, rear glass base].
   const CARS = [
-    { name: 'Falcon GT', len: 4.5, wid: 1.86, belt: 0.92, roof: 1.32, cabF: 0.30, cabR: -0.42, nose: 0.55, tail: 0.68, wing: 'lip', wr: 0.37, color: '#ff7a1a', accent: '#ffffff', stripe: true },
-    { name: 'Viper RS', len: 4.4, wid: 1.96, belt: 0.84, roof: 1.2, cabF: 0.12, cabR: -0.5, nose: 0.46, tail: 0.66, wing: 'wing', wr: 0.38, color: '#ff2fa8', accent: '#101018', stripe: true },
-    { name: 'Bolt', len: 3.9, wid: 1.78, belt: 0.98, roof: 1.46, cabF: 0.44, cabR: -0.62, nose: 0.66, tail: 0.84, wing: 'lip', wr: 0.35, color: '#2fa8ff', accent: '#ffffff', stripe: false },
-    { name: 'Titan V8', len: 4.8, wid: 1.95, belt: 0.98, roof: 1.4, cabF: 0.05, cabR: -0.42, nose: 0.74, tail: 0.9, wing: 'duck', wr: 0.4, color: '#e8c21a', accent: '#15151a', stripe: true },
-    { name: 'Phantom', len: 4.9, wid: 1.86, belt: 0.92, roof: 1.38, cabF: 0.36, cabR: -0.5, nose: 0.62, tail: 0.78, wing: 'lip', wr: 0.37, color: '#2c2f3a', accent: '#ffb347', stripe: false },
-    { name: 'Nova X', len: 4.6, wid: 2.0, belt: 0.78, roof: 1.12, cabF: 0.02, cabR: -0.52, nose: 0.4, tail: 0.6, wing: 'wing', wr: 0.38, color: '#e8fbff', accent: '#00d4ff', stripe: true },
-    { name: 'Orbit Z', len: 4.5, wid: 1.96, belt: 0.8, roof: 1.16, cabF: 0.1, cabR: -0.5, nose: 0.42, tail: 0.62, wing: 'wing', wr: 0.37, color: '#9d6bff', accent: '#7df9ff', stripe: true },
-    { name: 'Inferno RT', len: 4.6, wid: 1.98, belt: 0.82, roof: 1.18, cabF: 0.08, cabR: -0.5, nose: 0.44, tail: 0.64, wing: 'wing', wr: 0.38, color: '#e01a12', accent: '#ffb347', stripe: true }
+    { name: 'Falcon GT3', type: 'GT3', len: 4.6, wid: 2.04, wr: 0.36, noseH: 0.6, hoodH: 0.78, beltH: 0.9, deckH: 0.96, tailH: 0.84, cab: [-0.3, -0.06, 0.28, 0.56], roofH: 1.22, cabW: 0.92,
+      fender: 0.05, flare: 0.08, wing: 'gt', canards: true, livery: 'stripes', num: 7, color: '#ff6a12', accent: '#ffffff', trim: '#14151a' },
+    { name: 'Viper LMP', type: 'Le Mans prototype', len: 4.8, wid: 2.0, wr: 0.37, noseH: 0.44, hoodH: 0.6, beltH: 0.72, deckH: 0.9, tailH: 0.86, cab: [-0.26, -0.08, 0.14, 0.4], roofH: 1.06, cabW: 0.6,
+      fender: 0.12, flare: 0.06, wing: 'proto', fin: true, canards: true, livery: 'arrow', num: 3, color: '#ff2f8f', accent: '#15151c', trim: '#ffffff' },
+    { name: 'Bolt WRC', type: 'Rally', len: 4.1, wid: 1.96, wr: 0.35, noseH: 0.66, hoodH: 0.86, beltH: 0.96, deckH: 1.0, tailH: 0.98, cab: [-0.24, 0.02, 0.66, 0.9], roofH: 1.44, cabW: 0.94, uF: -0.66, uR: 0.68,
+      fender: 0.04, flare: 0.1, wing: 'rally', livery: 'band', num: 11, color: '#1f8fff', accent: '#ffe23a', trim: '#ffffff' },
+    { name: 'Titan V8', type: 'Stock car', len: 5.0, wid: 2.0, wr: 0.38, noseH: 0.64, hoodH: 0.86, beltH: 0.96, deckH: 1.0, tailH: 0.98, cab: [-0.16, 0.06, 0.32, 0.56], roofH: 1.32, cabW: 0.92,
+      fender: 0.03, flare: 0.04, wing: 'duck', livery: 'split', num: 48, color: '#f2c200', accent: '#101015', trim: '#ff3b30' },
+    { name: 'Phantom DTM', type: 'Touring', len: 4.85, wid: 2.0, wr: 0.37, noseH: 0.6, hoodH: 0.82, beltH: 0.92, deckH: 0.98, tailH: 0.92, cab: [-0.26, -0.04, 0.32, 0.5], roofH: 1.3, cabW: 0.92,
+      fender: 0.05, flare: 0.1, wing: 'gt', canards: true, livery: 'arrow', num: 22, color: '#262a36', accent: '#ffb347', trim: '#ffffff' },
+    { name: 'Nova Hyper', type: 'Hypercar', len: 4.7, wid: 2.04, wr: 0.37, noseH: 0.5, hoodH: 0.68, beltH: 0.8, deckH: 0.9, tailH: 0.86, cab: [-0.34, -0.12, 0.18, 0.62], roofH: 1.12, cabW: 0.84,
+      fender: 0.09, flare: 0.07, wing: 'swan', scoop: true, canards: true, livery: 'stripes', num: 1, color: '#eef7ff', accent: '#00c2ff', trim: '#15151c' },
+    { name: 'Orbit LMH', type: 'Hypercar prototype', len: 4.75, wid: 2.0, wr: 0.37, noseH: 0.46, hoodH: 0.62, beltH: 0.74, deckH: 0.92, tailH: 0.88, cab: [-0.24, -0.06, 0.16, 0.42], roofH: 1.08, cabW: 0.62,
+      fender: 0.12, flare: 0.06, wing: 'proto', fin: true, canards: true, livery: 'band', num: 9, color: '#8f5bff', accent: '#7df9ff', trim: '#101015' },
+    { name: 'Inferno GT1', type: 'GT1', len: 4.7, wid: 2.06, wr: 0.38, noseH: 0.52, hoodH: 0.72, beltH: 0.86, deckH: 0.92, tailH: 0.86, cab: [-0.28, -0.08, 0.22, 0.5], roofH: 1.17, cabW: 0.88,
+      fender: 0.1, flare: 0.1, wing: 'swan', scoop: true, canards: true, livery: 'split', num: 5, color: '#e3140e', accent: '#ffc247', trim: '#101015' }
   ];
   const AI_COLORS = ['#e8e8ee', '#1f6bff', '#18c46b', '#f2c200', '#a64dff', '#ff4a4a', '#00c8c8', '#ff8a1f'];
 
