@@ -5,10 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#070b1c">
 <title>Sky Racing 🏎️</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Saira+Condensed:wght@600;700;800;900&display=swap">
+<!-- YouTube Playables SDK: must be the first script on the page -->
+<script src="https://www.youtube.com/game_api/v1"></script>
 <style>
+  /* fonts are bundled with the game (no external requests) */
+  @font-face{font-family:"Saira Condensed";font-weight:700;font-display:swap;src:url(fonts/saira-condensed-latin-700-normal.woff2) format("woff2")}
+  @font-face{font-family:"Saira Condensed";font-weight:800;font-display:swap;src:url(fonts/saira-condensed-latin-800-normal.woff2) format("woff2")}
+  @font-face{font-family:"Saira Condensed";font-weight:900;font-display:swap;src:url(fonts/saira-condensed-latin-900-normal.woff2) format("woff2")}
+  @font-face{font-family:"Chakra Petch";font-weight:500 600;font-display:swap;src:url(fonts/chakra-petch-latin-600-normal.woff2) format("woff2")}
+  @font-face{font-family:"Chakra Petch";font-weight:700;font-display:swap;src:url(fonts/chakra-petch-latin-700-normal.woff2) format("woff2")}
   /* Layout: full-screen 3D view; HUD hugs the top edge (position left, speedometer centre, nitro right); controls hug the bottom. */
   :root{
     --ink:#f3f6ff; --dim:rgba(225,233,255,.72); --accent:#ff8a1f; --accent-hi:#ffc247; --nitro:#33d6ff;
@@ -98,6 +103,7 @@
   .btn>span{display:inline-block;transform:skewX(12deg)}
   .btn.primary{background:linear-gradient(180deg,var(--accent-hi),var(--accent));color:#2a1200;border:0;font-size:26px;height:62px;box-shadow:0 8px 26px rgba(255,138,31,.45)}
   .btn:active{filter:brightness(1.15)}
+  .btn:disabled{opacity:.55}
   .row{display:flex;gap:10px;justify-content:center;width:min(76vw,300px)}
   .row .btn{min-width:0;flex:1;font-size:16px;padding:0 10px;height:48px}
   .pips{display:flex;gap:6px;margin-top:10px}
@@ -210,6 +216,7 @@
 <script src="track.js"></script>
 <script src="world.js"></script>
 <script src="cars.js"></script>
+<script src="playables.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

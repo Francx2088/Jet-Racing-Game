@@ -11,15 +11,19 @@
   const NL = LEVELS.length, LAST = NL - 1;
   const NAMES = ['Aria', 'Blaze', 'Cobra', 'Dash', 'Echo', 'Fury', 'Ghost', 'Hawk'];
 
+  const PLAY = window.SkyPlayables;
   window.addEventListener('error', e => {
+    if (PLAY.inYouTube) return;                              // inside YouTube errors go to ytgame.health instead
     const d = document.createElement('div'); d.id = 'err'; d.textContent = 'Error: ' + e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno;
     document.body.appendChild(d);
   });
 
   /* ---------------- save data ---------------- */
   let save = { reached: 1, best: {}, sound: true, allDone: false };
-  try { const s = JSON.parse(localStorage.getItem('skyracing.v2')); if (s) save = Object.assign(save, s); } catch (e) { /* ignore */ }
-  const persist = () => { try { localStorage.setItem('skyracing.v2', JSON.stringify(save)); } catch (e) { /* ignore */ } };
+  // progress lives in the Playables cloud save (loaded at boot, see bottom of file)
+  const persist = () => PLAY.save(JSON.stringify(save));
+  const totalStars = () => Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
+  let ytAudio = PLAY.audioEnabled();
 
   /* ---------------- renderer ---------------- */
   const canvas = $('c');
@@ -136,7 +140,7 @@
       try {
         const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
         const ctx = this.ctx = new C();
-        this.master = ctx.createGain(); this.master.gain.value = save.sound ? 0.6 : 0; this.master.connect(ctx.destination);
+        this.master = ctx.createGain(); this.master.gain.value = save.sound && ytAudio ? 0.6 : 0; this.master.connect(ctx.destination);
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(this.master);
         this.engGain = ctx.createGain(); this.engGain.gain.value = 0; this.engGain.connect(lp);
         this.o1 = ctx.createOscillator(); this.o1.type = 'sawtooth'; this.o1.frequency.value = 60;
@@ -150,9 +154,10 @@
         ns.connect(this.hp); this.hp.connect(this.windGain); this.windGain.connect(this.master); ns.start();
       } catch (e) { this.ctx = null; }
     },
-    setMute(m) { save.sound = !m; persist(); if (this.master) this.master.gain.value = m ? 0 : 0.6; },
+    setMute(m) { save.sound = !m; persist(); this.apply(); },
+    apply() { if (this.master) this.master.gain.value = save.sound && ytAudio ? 0.6 : 0; },
     tone(freq, dur, type, vol, slideTo) {
-      if (!this.ctx || !save.sound) return;
+      if (!this.ctx || !save.sound || !ytAudio) return;
       const t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
       o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
       if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
@@ -740,6 +745,7 @@
     if (passed && idx < LAST) save.reached = Math.max(save.reached || 1, idx + 2);
     if (idx === LAST) save.allDone = true;                       // raced the last track: free track select opens
     persist();
+    PLAY.sendScore(totalStars());
     $('resLevel').textContent = 'Track ' + L.id + ' · ' + L.name;
     $('resPlace').innerHTML = place + '<sup>' + ['ST', 'ND', 'RD', 'TH', 'TH', 'TH'][place - 1] + '</sup>';
     $('resStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
@@ -764,7 +770,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (!state.world || !state.player) return;
+    if (!state.world || !state.player || state.sysPaused) return;
     if (!state.paused) tick(dt);
     renderer.render(scene, camera);
   }
@@ -861,6 +867,27 @@
     fastForward(sec, step) { step = step || 1 / 30; for (let t = 0; t < sec && state.mode !== 'menu'; t += step) tick(step); }
   };
 
+  /* ---------------- YouTube Playables lifecycle ---------------- */
+  // platform pause: everything stops (simulation, rendering, timers, audio) until onResume
+  PLAY.onPause(() => { state.sysPaused = true; input.kl = input.kr = input.left = input.right = false; input.touching = false; if (audio.ctx) audio.ctx.suspend(); });
+  PLAY.onResume(() => { state.sysPaused = false; last = performance.now(); if (audio.ctx) audio.ctx.resume(); });
+  PLAY.onAudioChange(on => { ytAudio = !!on; audio.apply(); });
+
+  const menuBtns = ['playBtn', 'levelsBtn', 'soundBtn'].map($);
+  menuBtns.forEach(b => { b.disabled = true; });
   startMenuDemo();
   requestAnimationFrame(frame);
+  // first frame on screen -> load the cloud save -> interactive
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    PLAY.firstFrameReady();
+    PLAY.load().then(str => {
+      try { const s = str ? JSON.parse(str) : null; if (s && typeof s === 'object') save = Object.assign(save, s); } catch (e) { PLAY.logWarning(); }
+      window.SkyGame.save = save;
+      PLAY.setKnownScore(totalStars());
+      setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off'); audio.apply();
+      if (state.mode === 'menu') startMenuDemo();
+      menuBtns.forEach(b => { b.disabled = false; });
+      PLAY.gameReady();
+    });
+  }));
 })();

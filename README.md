@@ -8,5 +8,6 @@ A 3D sky-racing browser game (three.js). Open `index.html` through any static se
 - Nitro comes only from the boost pads on the road (and slipstreaming); it fires by itself. Rivals follow exactly the same rules for nitro, crashes and bumps.
 - Play always starts at Track 1; a top-3 finish moves you to the next track. Reaching and racing Track 10 opens free track select.
 - Hazards: crates, cones, sliding bars, spinners, gates and lasers.
-- Files: `track.js` (track generator), `levels.js` (level data), `world.js` (sky, road, scenery), `cars.js` (car models), `game.js` (gameplay, HUD, audio)
-- No platform SDK is integrated yet.
+- Files: `track.js` (track generator), `levels.js` (level data), `world.js` (sky, road, scenery), `cars.js` (car models), `game.js` (gameplay, HUD, audio), `playables.js` (YouTube Playables bridge)
+- YouTube Playables: the SDK (`https://www.youtube.com/game_api/v1`) is the first script; `playables.js` handles firstFrameReady → loadData → gameReady, cloud saves via saveData (no localStorage inside YouTube), onPause/onResume (everything stops), the YouTube mute setting, sendScore (total stars) and health logging. Fonts are bundled; the game makes no other network requests.
+- Build the upload zip: `./tools/build-playables.sh` → `dist/sky-racing-playables.zip`
