@@ -44,6 +44,10 @@
         if (bank && yaw) dr += -Math.sign(yaw) * bank * (Math.sin(Math.PI * t1) - Math.sin(Math.PI * t0));
         if (dy) { const ax = c.local ? u : [0, 1, 0]; f = rot(f, ax, dy); u = rot(u, ax, dy); }
         if (dp) { const r = cross(f, u); f = rot(f, r, dp); u = rot(u, r, dp); }
+        if (c.unroll) {                       // level the road again: remove whatever bank is left, smoothly
+          const r0 = cross(f, u), rem = 1 - E(t0);
+          if (rem > 1e-6) dr += Math.asin(Math.max(-1, Math.min(1, r0[1]))) * (E(t1) - E(t0)) / rem;
+        }
         if (dr) u = rot(u, f, dr);
         f = norm(f);
         const d = dot(u, f); u = norm([u[0] - f[0] * d, u[1] - f[1] * d, u[2] - f[2] * d]);

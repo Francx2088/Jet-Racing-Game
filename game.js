@@ -8,6 +8,7 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
   const V3 = (x, y, z) => new T.Vector3(x, y, z);
+  const NL = LEVELS.length, LAST = NL - 1;
   const NAMES = ['Aria', 'Blaze', 'Cobra', 'Dash', 'Echo', 'Fury', 'Ghost', 'Hawk'];
 
   window.addEventListener('error', e => {
@@ -16,7 +17,7 @@
   });
 
   /* ---------------- save data ---------------- */
-  let save = { reached: 1, best: {}, sound: true, done: false };
+  let save = { reached: 1, best: {}, sound: true, allDone: false };
   try { const s = JSON.parse(localStorage.getItem('skyracing.v2')); if (s) save = Object.assign(save, s); } catch (e) { /* ignore */ }
   const persist = () => { try { localStorage.setItem('skyracing.v2', JSON.stringify(save)); } catch (e) { /* ignore */ } };
 
@@ -692,10 +693,10 @@
     spawnRace(true);
     state.leadS = state.world.track.startS + 120; state.time = 0;
     show('hud', false); show('menu', true); show('levels', false); show('result', false); show('pauseScr', false);
-    const reached = Math.min(save.reached || 1, 8), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
-    $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.done || i + 1 < reached ? 'done' : i + 1 === reached ? 'now' : '') + '"></i>').join('');
-    $('menuBest').textContent = save.done ? 'Career complete · ' + stars + ' / 24 ★ · Tracks is open: pick any track.'
-      : reached > 1 ? 'Every race starts at Track 1 · your best run reached Track ' + reached + '.' : 'Start at Track 1, finish top 3 to go on. Reach Track 8 to open Tracks.';
+    const reached = Math.min(save.reached || 1, NL), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
+    $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.allDone || i + 1 < reached ? 'done' : i + 1 === reached ? 'now' : '') + '"></i>').join('');
+    $('menuBest').textContent = save.allDone ? 'Career complete · ' + stars + ' / ' + NL * 3 + ' ★ · Tracks is open: pick any track.'
+      : reached > 1 ? 'Every race starts at Track 1 · your best run reached Track ' + reached + '.' : 'Start at Track 1, finish top 3 to go on. Reach Track ' + NL + ' to open Tracks.';
     setBtn('playBtn', 'Play');
   }
   function setBtn(id, txt) { $(id).querySelector('span').textContent = txt; }
@@ -709,7 +710,7 @@
       state.mode = 'countdown'; state.countT = 0; state.lastCount = 4; state.lastBeep = 4; cam.init = false; state.paused = false;
       show('menu', false); show('levels', false); show('result', false); show('pauseScr', false); show('hud', true);
       const L = state.world.L;
-      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + (state.layout === 'ctl-portrait' ? ' · swipe left / right to steer' : state.layout === 'ctl-desktop' ? ' · ← → to steer' : '') + '</div>';
+      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF ' + NL + '</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + (state.layout === 'ctl-portrait' ? ' · swipe left / right to steer' : state.layout === 'ctl-desktop' ? ' · ← → to steer' : '') + '</div>';
       hud.count.textContent = ''; hud.time.textContent = '0:00.0'; lastPos = -1;
       state.lastLit = -1; lights.forEach(el => el.classList.remove('on')); $('lights').classList.remove('go'); $('lights').classList.add('show');
       updateCamera(0.016); placeAll(0.016);
@@ -736,8 +737,8 @@
     save.best[L.id] = { time: place <= 3 ? Math.min(prev.time || 1e9, p.finishTime) : prev.time, stars: Math.max(prev.stars || 0, stars), place: Math.min(prev.place || 9, place) };
     if (!save.best[L.id].time) delete save.best[L.id].time;
     const passed = place <= 3;
-    if (passed && idx < 7) save.reached = Math.max(save.reached || 1, idx + 2);
-    if (idx === 7) save.done = true;                       // raced the last track: free track select opens
+    if (passed && idx < LAST) save.reached = Math.max(save.reached || 1, idx + 2);
+    if (idx === LAST) save.allDone = true;                       // raced the last track: free track select opens
     persist();
     $('resLevel').textContent = 'Track ' + L.id + ' · ' + L.name;
     $('resPlace').innerHTML = place + '<sup>' + ['ST', 'ND', 'RD', 'TH', 'TH', 'TH'][place - 1] + '</sup>';
@@ -745,9 +746,9 @@
     const best = save.best[L.id].time;
     const rows = [['Time', fmt(p.finishTime)], ['Best', best ? fmt(best) + (newBest && passed ? ' NEW' : '') : '—'], ['Top speed', Math.round(state.stats.top) + ' km/h'], ['Nitro pads', state.stats.boosts], ['Crashes', state.stats.crashes]];
     $('resStats').innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
-    $('resMsg').textContent = idx === 7 ? 'You reached the last track! Tracks is now open: pick any track to race.'
+    $('resMsg').textContent = idx === LAST ? 'You reached the last track! Tracks is now open: pick any track to race.'
       : !passed ? 'Finish in the top 3 to go on to Track ' + (idx + 2) + '.' : 'Podium! Track ' + (idx + 2) + ' is next.';
-    $('nextBtn').style.display = passed && idx < 7 ? '' : 'none';
+    $('nextBtn').style.display = passed && idx < LAST ? '' : 'none';
     setBtn('nextBtn', 'Next track ▶');
     show('hud', false); show('result', true);
   }
@@ -821,19 +822,19 @@
   // career: tracks unlock one after another and only the next one can be raced, until all 8 are cleared
   function buildLevelGrid() {
     const g = $('grid'); g.innerHTML = '';
-    $('gridNote').textContent = save.done ? 'Free play · pick any track' : 'Track 1 is always open · reach Track 8 in a run to unlock the rest';
+    $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Track 1 is always open · reach Track ' + NL + ' in a run to unlock the rest';
     LEVELS.forEach((L, i) => {
-      const open = save.done || i === 0;
+      const open = save.allDone || i === 0;
       const c = document.createElement('button');
-      c.className = 'card' + (open ? (save.done ? '' : ' next') : ' locked');
+      c.className = 'card' + (open ? (save.allDone ? '' : ' next') : ' locked');
       const s = L.theme.sky; c.style.background = 'linear-gradient(180deg,' + s.top + ',' + s.mid + ' 60%,' + s.hor + ')';
       const b = save.best[L.id], stars = b ? b.stars : 0;
-      const chip = open ? (b ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : (save.done ? '' : '<span class="chip next">START</span>')) : '<span class="chip">🔒</span>';
+      const chip = open ? (b ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : (save.allDone ? '' : '<span class="chip next">START</span>')) : '<span class="chip">🔒</span>';
       c.innerHTML = '<div class="n">' + L.id + '</div>' + chip + '<div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
       if (!open) c.setAttribute('aria-disabled', 'true');
       c.addEventListener('click', () => {
         if (open) startLevel(i);
-        else $('gridNote').textContent = 'Locked · play from Track 1 and reach Track 8 to pick tracks freely.';
+        else $('gridNote').textContent = 'Locked · play from Track 1 and reach Track ' + NL + ' to pick tracks freely.';
       });
       g.appendChild(c);
     });

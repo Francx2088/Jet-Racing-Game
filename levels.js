@@ -9,6 +9,7 @@
     { len: Math.PI * R, pitch: 180, yaw: 32 * Math.sign(dir), local: true, noscale: true, mix: 0.5 },
     { len: Math.PI * R, pitch: 180, yaw: -32 * Math.sign(dir), local: true, noscale: true, mix: 0.5 },
     { len: 40, pitch: -5, noscale: true }];
+  const LOOPL = (R, dir) => [LOOP(R, dir), { len: 60, unroll: true }];   // loop that comes out with a level road
   const climb = (deg, len) => [P(30, deg), S(len), P(30, -deg)];
   const coil = (deg, len, yaw, bank) => [P(30, deg), T(len, yaw, bank), P(30, -deg)];
   const jump = len => [P(20, 7), { len: len / 2, gap: true }, { len: 20, pitch: -14, gap: true }, { len: len / 2, gap: true }, P(20, 7)];
@@ -117,6 +118,32 @@
         road: { base: '#1a1412', line: '#ffb347', edge: '#ff3d1f', style: 'basalt' }, rail: '#ff3d1f',
         sea: { color: '#2a0d06', y: -210, op: 0.9, count: 140, size: 440 }, scenery: 'lava', weather: { type: 'embers', count: 260, color: '#ff9a40' }, exposure: 1.1
       }
+    },
+    {
+      id: 9, name: 'Aurora Run', tag: 'Night race under the northern lights', twist: 'Long jumps, a corkscrew and a spiral drop. Crosswinds push you around.',
+      scale: 3.3, width: 16, base: 96, aiSkill: 1.0, aiRubber: 0.11, ai: 5, car: 8,
+      mech: { pads: 13, obst: 14, mix: ['gate', 'cones', 'spinner', 'block', 'laser'], gateGap: 5.2, draft: 16, gust: 9 },
+      cmds: [S(100), T(110, 60, 30), jump(40), T(100, -100, 34), S(50), climb(12, 90), CS(100, -360), T(110, 120, 36), jump(44), T(100, -70, 30),
+        coil(-10, 240, -300, 38), S(60), T(100, 90, 32), jump(36), T(90, -60, 28), S(150)],
+      theme: {
+        sky: { top: '#020617', mid: '#0b1f3a', hor: '#1d4a5c', sun: [0.3, 0.25, -0.9], sunCol: '#cfe8ff', sunPow: 2600, cloud: 0.15, cloudCol: '#203a50', stars: 1.0, neb: '#2dffa0' },
+        fog: { color: '#0c2233', near: 240, far: 2400 }, light: { hemiSky: '#7fd8ff', hemiGround: '#0a1a28', dir: '#bfe6ff', dirI: 0.95, hemiI: 0.8 },
+        road: { base: '#2a3644', line: '#e8faff', edge: '#3dffb0', style: 'ice' }, rail: '#3dffb0',
+        sea: { color: '#1a3a52', y: -200, op: 0.85, count: 150, size: 440 }, scenery: 'ice', weather: { type: 'snow', count: 380, color: '#e8f6ff' }, exposure: 1.1, blimps: 2
+      }
+    },
+    {
+      id: 10, name: 'Sky Citadel GP', tag: 'The grand finale at sunset', twist: 'Two loops, a corkscrew, a coil, jumps and every hazard. Win it all!',
+      scale: 3.4, width: 14, base: 100, aiSkill: 1.01, aiRubber: 0.12, ai: 5, car: 9,
+      mech: { pads: 20, obst: 28, mix: ['gate', 'bar', 'laser', 'spinner', 'block', 'cones'], gateGap: 4.8, draft: 16, padMult: 1.3 },
+      cmds: [S(140), T(100, -70, 30), S(80), LOOPL(52, 1), S(90), T(100, 110, 34), S(70), jump(40), T(90, -120, 36), S(80), climb(14, 90), CS(90, 360), S(60), T(100, 90, 34),
+        S(70), coil(10, 240, 360, 38), S(90), LOOPL(56, -1), S(90), T(100, -100, 34), S(60), jump(44), T(90, 80, 32), S(160)],
+      theme: {
+        sky: { top: '#2a1a5e', mid: '#ff7a59', hor: '#ffd08a', sun: [-0.6, 0.12, -0.8], sunCol: '#ffcf8a', sunPow: 700, cloud: 0.55, cloudCol: '#ffb09a', stars: 0 },
+        fog: { color: '#f59a78', near: 220, far: 2400 }, light: { hemiSky: '#ffc9a8', hemiGround: '#5a3a6a', dir: '#ffc08a', dirI: 1.2, hemiI: 0.8 },
+        road: { base: '#23202e', line: '#ffe6bf', edge: '#ffd23a', style: 'asphalt' }, rail: '#ffd23a',
+        sea: { color: '#ffc3b0', y: -220, op: 0.9, count: 160, size: 440 }, scenery: 'towers', weather: null, exposure: 0.95, blimps: 3, balloons: 6
+      }
     }
   ];
 
@@ -137,7 +164,11 @@
     { name: 'Orbit LMH', type: 'Hypercar prototype', len: 4.75, wid: 2.0, wr: 0.37, noseH: 0.46, hoodH: 0.62, beltH: 0.74, deckH: 0.92, tailH: 0.88, cab: [-0.24, -0.06, 0.16, 0.42], roofH: 1.08, cabW: 0.62,
       fender: 0.12, flare: 0.06, wing: 'proto', fin: true, canards: true, livery: 'band', num: 9, color: '#8f5bff', accent: '#7df9ff', trim: '#101015' },
     { name: 'Inferno GT1', type: 'GT1', len: 4.7, wid: 2.06, wr: 0.38, noseH: 0.52, hoodH: 0.72, beltH: 0.86, deckH: 0.92, tailH: 0.86, cab: [-0.28, -0.08, 0.22, 0.5], roofH: 1.17, cabW: 0.88,
-      fender: 0.1, flare: 0.1, wing: 'swan', scoop: true, canards: true, livery: 'split', num: 5, color: '#e3140e', accent: '#ffc247', trim: '#101015' }
+      fender: 0.1, flare: 0.1, wing: 'swan', scoop: true, canards: true, livery: 'split', num: 5, color: '#e3140e', accent: '#ffc247', trim: '#101015' },
+    { name: 'Aurora RS', type: 'GT3', len: 4.65, wid: 2.04, wr: 0.36, noseH: 0.56, hoodH: 0.74, beltH: 0.88, deckH: 0.95, tailH: 0.86, cab: [-0.3, -0.07, 0.26, 0.56], roofH: 1.2, cabW: 0.9,
+      fender: 0.07, flare: 0.09, wing: 'swan', canards: true, livery: 'band', num: 99, color: '#0fd6b0', accent: '#0a1426', trim: '#ffffff' },
+    { name: 'Apex Prime', type: 'Hypercar prototype', len: 4.85, wid: 2.04, wr: 0.37, noseH: 0.44, hoodH: 0.6, beltH: 0.72, deckH: 0.9, tailH: 0.88, cab: [-0.25, -0.07, 0.15, 0.42], roofH: 1.06, cabW: 0.6,
+      fender: 0.13, flare: 0.07, wing: 'proto', fin: true, canards: true, livery: 'stripes', num: 10, color: '#d9a21e', accent: '#101015', trim: '#ffffff' }
   ];
   const AI_COLORS = ['#e8e8ee', '#1f6bff', '#18c46b', '#f2c200', '#a64dff', '#ff4a4a', '#00c8c8', '#ff8a1f'];
 

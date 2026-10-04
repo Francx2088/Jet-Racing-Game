@@ -630,6 +630,8 @@
     else if (kind === 'ice') { addBlimps(3); addBalloons(5, ['#ff3b30', '#2f8fff']); }
     else if (kind === 'space') addShips(12);
     else if (kind === 'lava') addMeteors(10);
+    if (th.blimps) addBlimps(th.blimps);
+    if (th.balloons) addBalloons(th.balloons, ['#ff6a3d', '#ffd23a', '#2f8fff', '#ff4b8f']);
     const updateFlyers = (time, dt) => {
       for (const f of flyers) {
         if (f.kind === 'drift') f.o.position.set(f.base.x + Math.sin(time * f.sp + f.ph) * 6, f.base.y + Math.sin(time * f.sp * 1.7 + f.ph) * 3, f.base.z + Math.cos(time * f.sp + f.ph) * 6);
