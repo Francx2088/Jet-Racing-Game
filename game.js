@@ -489,12 +489,12 @@
 
   // slipstream: sitting right behind any car fills the nitro tank, for rivals too
   function drafting() {
-    const M = state.world.L.mech, rate = (M.draft || 14) * 0.5 * state.dt;
+    const M = state.world.L.mech;
     for (const c of state.cars) {
       c.draft = 0;
       for (const o of state.cars) {
         if (o === c) continue; const d = o.s - c.s;
-        if (d > 3 && d < 20 && Math.abs(o.lat - c.lat) < 2.8) { c.draft = 1; c.nitro = Math.min(100, c.nitro + rate); break; }
+        if (d > 3 && d < 20 && Math.abs(o.lat - c.lat) < 2.8) { c.draft = 1; break; }
       }
     }
     const p = state.player;
@@ -729,7 +729,15 @@
     const place = state.cars.filter(c => c.finished).length;  // player already flagged finished
     p.place = place;
     audio.fin(); celebrate(); hud.intro.innerHTML = ''; toast(place === 1 ? 'VICTORY!' : 'FINISH!', '#ffe45c');
-    setTimeout(showResult, 1700);
+    setTimeout(() => {
+      if (state.mode !== 'finish') return;
+      state.adPause = true; if (audio.ctx) audio.ctx.suspend();
+      PLAY.interstitial().then(() => {
+        state.adPause = false; last = performance.now();
+        if (audio.ctx && !state.sysPaused) audio.ctx.resume();
+        showResult();
+      });
+    }, 1000);
   }
   function showResult() {
     if (state.mode !== 'finish' || state.resultShown) return;
@@ -770,7 +778,7 @@
   function frame(now) {
     requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (!state.world || !state.player || state.sysPaused) return;
+    if (!state.world || !state.player || state.sysPaused || state.adPause) return;
     if (!state.paused) tick(dt);
     renderer.render(scene, camera);
   }

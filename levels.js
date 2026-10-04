@@ -68,7 +68,7 @@
       }
     },
     {
-      id: 5, name: 'Desert Mirage', tag: 'Hairpins & slipstreams', twist: 'Stick behind rivals: drafting fills your nitro fast.',
+      id: 5, name: 'Desert Mirage', tag: 'Hairpins & slipstreams', twist: 'Hairpins and long jumps. Tuck in behind rivals for a slipstream tow.',
       scale: 3.5, width: 17, base: 86, aiSkill: 0.99, aiRubber: 0.1, ai: 5, car: 4,
       mech: { pads: 10, obst: 12, mix: ['gate', 'block', 'bar', 'cones'], gateGap: 5.6, draft: 28 },
       cmds: [S(100), T(100, 60, 30), jump(36), T(90, -170, 40), S(60), climb(14, 90), T(90, 170, 40), S(60), jump(44), T(100, -70, 30),

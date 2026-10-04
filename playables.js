@@ -63,6 +63,14 @@
     onPause(cb) { pauseCbs.push(cb); },
     onResume(cb) { resumeCbs.push(cb); },
 
+    /** Interstitial ad at a natural break (end of a race). Never at game start: YouTube handles that itself.
+        Always resolves, ad or no ad, so the game can never get stuck. */
+    interstitial() {
+      if (!(IN_ENV && yt.ads && typeof yt.ads.requestInterstitialAd === 'function')) return Promise.resolve(false);
+      let p;
+      try { p = yt.ads.requestInterstitialAd(); } catch (e) { P.logWarning(); return Promise.resolve(false); }
+      return withTimeout(Promise.resolve(p).then(() => true, () => false), 60000).then(v => !!v);
+    },
     language() { if (IN_ENV && yt.system.getLanguage) return withTimeout(yt.system.getLanguage(), 2000).then(l => l || 'en'); return Promise.resolve(navigator.language || 'en'); },
 
     logError() { if (IN_ENV && yt.health) try { yt.health.logError(); } catch (e) { /* ignore */ } },
