@@ -16,7 +16,7 @@
   });
 
   /* ---------------- save data ---------------- */
-  let save = { unlocked: 1, best: {}, sound: true };
+  let save = { unlocked: 1, best: {}, sound: true, done: false };
   try { const s = JSON.parse(localStorage.getItem('skyracing.v1')); if (s) save = Object.assign(save, s); } catch (e) { /* ignore */ }
   const persist = () => { try { localStorage.setItem('skyracing.v1', JSON.stringify(save)); } catch (e) { /* ignore */ } };
 
@@ -116,8 +116,8 @@
   };
 
   /* ---------------- input ---------------- */
-  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: a thumb slider.
-  const input = { left: false, right: false, kl: false, kr: false, boost: false, analog: 0 };
+  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: hold anywhere and slide left / right.
+  const input = { left: false, right: false, kl: false, kr: false, analog: 0 };
   let touchSeen = false;
   function isTouchDevice() {
     const mm = q => window.matchMedia && window.matchMedia(q).matches;
@@ -134,28 +134,19 @@
   window.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !touchSeen) { touchSeen = true; applyLayout(); } audio.init(); });
   window.addEventListener('contextmenu', e => e.preventDefault());
   const isLeft = k => k === 'ArrowLeft' || k === 'a' || k === 'A', isRight = k => k === 'ArrowRight' || k === 'd' || k === 'D';
-  const isBoost = k => k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'Shift';
   window.addEventListener('keydown', e => {
     audio.init();
     if (isLeft(e.key)) input.kl = true;
     if (isRight(e.key)) input.kr = true;
-    if (isBoost(e.key)) input.boost = true;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') togglePause();
-    if (e.key === 'Enter' && state.mode === 'menu') startLevel(Math.min(save.unlocked, 8) - 1);
+    if (e.key === 'Enter' && state.mode === 'menu' && !$('menu').classList.contains('hidden')) $('playBtn').click();
   });
   window.addEventListener('keyup', e => {
     if (isLeft(e.key)) input.kl = false;
     if (isRight(e.key)) input.kr = false;
-    if (isBoost(e.key)) input.boost = false;
   });
-  window.addEventListener('blur', () => { input.kl = input.kr = input.boost = false; });
-
-  // boost button
-  const boostBtn = $('boost');
-  boostBtn.addEventListener('pointerdown', e => { e.preventDefault(); boostBtn.setPointerCapture(e.pointerId); input.boost = true; boostBtn.classList.add('down'); audio.init(); });
-  const boostUp = () => { input.boost = false; boostBtn.classList.remove('down'); };
-  boostBtn.addEventListener('pointerup', boostUp); boostBtn.addEventListener('pointercancel', boostUp); boostBtn.addEventListener('lostpointercapture', boostUp);
+  window.addEventListener('blur', () => { input.kl = input.kr = false; });
 
   // landscape: left / right arrow buttons (slide a thumb from one to the other)
   const arrows = $('arrows'), btnL = $('btnL'), btnR = $('btnR');
@@ -170,20 +161,27 @@
   arrows.addEventListener('pointerup', e => { if (e.pointerId === arrowId) arrowClear(); });
   arrows.addEventListener('pointercancel', arrowClear); arrows.addEventListener('lostpointercapture', arrowClear);
 
-  // portrait: thumb slider. The farther the knob is dragged, the harder the car steers.
-  const pad = $('steerPad'), knob = $('steerKnob');
-  let padId = null;
-  function padSet(e) {
-    const r = pad.getBoundingClientRect(), max = r.width / 2 - 46;
-    const off = clamp(e.clientX - (r.left + r.width / 2), -max, max), v = off / max;
-    knob.style.transform = 'translateX(' + off + 'px)';
-    input.analog = Math.abs(v) < 0.06 ? 0 : Math.sign(v) * (0.55 * Math.abs(v) + 0.45 * v * v);
+  // portrait: put a thumb down anywhere, slide right to go right and left to go left.
+  // The anchor follows the thumb once it passes full lock, so reversing direction reacts at once.
+  const ring = $('touchRing'), ringDot = ring.firstElementChild;
+  let dragId = null, dragX0 = 0;
+  const steerRange = () => Math.max(46, window.innerWidth * 0.16);
+  function dragSet(x, y) {
+    const max = steerRange();
+    if (x - dragX0 > max) dragX0 = x - max; else if (dragX0 - x > max) dragX0 = x + max;
+    const v = (x - dragX0) / max;
+    input.analog = Math.abs(v) < 0.05 ? 0 : Math.sign(v) * (0.55 * Math.abs(v) + 0.45 * v * v);
+    ring.style.transform = 'translate(' + dragX0 + 'px,' + y + 'px)';
+    ringDot.style.transform = 'translateX(' + (v * 34) + 'px)';
   }
-  function padClear() { padId = null; input.analog = 0; knob.style.transition = 'transform .12s'; knob.style.transform = 'translateX(0)'; }
-  pad.addEventListener('pointerdown', e => { e.preventDefault(); pad.setPointerCapture(e.pointerId); padId = e.pointerId; knob.style.transition = 'none'; padSet(e); audio.init(); });
-  pad.addEventListener('pointermove', e => { if (e.pointerId === padId) padSet(e); });
-  pad.addEventListener('pointerup', e => { if (e.pointerId === padId) padClear(); });
-  pad.addEventListener('pointercancel', padClear); pad.addEventListener('lostpointercapture', padClear);
+  function dragEnd(e) { if (e && e.pointerId !== dragId) return; dragId = null; input.analog = 0; ring.classList.remove('on'); }
+  window.addEventListener('pointerdown', e => {
+    if (state.layout !== 'ctl-portrait' || (state.mode !== 'race' && state.mode !== 'countdown') || state.paused || dragId !== null) return;
+    if (e.target.closest && e.target.closest('button,.screen')) return;
+    dragId = e.pointerId; dragX0 = e.clientX; ring.classList.add('on'); dragSet(e.clientX, e.clientY);
+  });
+  window.addEventListener('pointermove', e => { if (e.pointerId === dragId) dragSet(e.clientX, e.clientY); });
+  window.addEventListener('pointerup', dragEnd); window.addEventListener('pointercancel', dragEnd);
 
   /* ---------------- game state ---------------- */
   const state = { mode: 'menu', levelIdx: 0, world: null, cars: [], player: null, time: 0, raceT: 0, countT: 0, finishT: 0, paused: false, autopilot: false, resultShown: false };
@@ -221,8 +219,8 @@
     const w = state.world;
     const mesh = window.SkyCars.build(style, color, { env: w.env, detail: isPlayer ? 'high' : 'low', glow: isPlayer ? w.th.road.edge : color });
     scene.add(mesh);
-    return { mesh, parts: mesh.userData.parts, dims: mesh.userData.dims, style, color, isPlayer, name, s: 0, lat: 0, latV: 0, speed: 0, steerS: 0, boostT: 0, nitro: 40, nitroOn: false,
-      fr: 0, padTarget: null, padSeen: new Set(), aiBurn: false, react: 60, padSeek: 0.8, margin: 1.4, rnd: Math.random, yawVis: 0, spin: 0, hitCd: 0, padCd: 0, finished: false, finishTime: 0, skill: 1, lane0: 0, laneF: 1, laneAmp: 0, ph: 0, wheelRot: 0, scrape: 0, draft: 0, combo: 0 };
+    return { mesh, parts: mesh.userData.parts, dims: mesh.userData.dims, style, color, isPlayer, name, s: 0, lat: 0, latV: 0, speed: 0, steerS: 0, nitro: 0, nitroOn: false, slowT: 0, slowF: 1, bumpCd: 0, wallCd: 0,
+      fr: 0, padTarget: null, padSeen: new Set(), react: 60, padSeek: 0.8, margin: 1.4, rnd: Math.random, yawVis: 0, spin: 0, hitCd: 0, padCd: 0, finished: false, finishTime: 0, skill: 1, lane0: 0, laneF: 1, laneAmp: 0, ph: 0, wheelRot: 0, scrape: 0, draft: 0, combo: 0 };
   }
 
   function spawnRace(demo) {
@@ -239,7 +237,7 @@
       const c = makeCar(st, col, false, NAMES[(i + L.id) % NAMES.length]);
       c.skill = L.aiSkill + (rnd() - 0.6) * 0.05 + (i === 0 ? 0.015 : 0);
       c.lane0 = (rnd() - 0.5) * L.width * 0.5; c.laneF = 0.3 + rnd() * 0.5; c.laneAmp = L.width * (0.04 + rnd() * 0.08); c.ph = rnd() * 6.28;
-      c.react = 42 + rnd() * 60; c.padSeek = 0.55 + rnd() * 0.4; c.margin = 1.2 + rnd() * 0.5; c.rnd = rnd; c.nitro = 30 + rnd() * 20;
+      c.react = 42 + rnd() * 60; c.padSeek = 0.55 + rnd() * 0.4; c.margin = 1.2 + rnd() * 0.5; c.rnd = rnd;
       cars.push(c);
     }
     // grid: 2 columns x 3 rows, player somewhere in the back half
@@ -325,64 +323,73 @@
       c.lat += clamp((laneT - c.lat) * 2.6, -15, 15) * dt;
       c.latV = (c.lat - prev) / Math.max(dt, 1e-4);
     }
-    // walls
+    // walls (every car scrapes and loses speed the same way)
     if (Math.abs(c.lat) > halfW) {
       const sgn = Math.sign(c.lat);
       c.lat = sgn * halfW;
-      if (c.latV * sgn > 3 && c.isPlayer) {
-        c.speed -= c.speed * 0.55 * dt * 2.2;
-        c.scrape = 0.15;
-        emitSparks(V3(fr.p.x + fr.r.x * (c.lat + sgn * 0.9), fr.p.y + fr.r.y * (c.lat + sgn * 0.9) + 0.5, fr.p.z + fr.r.z * (c.lat + sgn * 0.9)), 2, V3(-fr.f.x * c.speed * 0.2, 2, -fr.f.z * c.speed * 0.2), 6);
-        if (!c.wallT || state.time - c.wallT > 0.6) { audio.tone(300, 0.1, 'sawtooth', 0.08, 120); c.wallT = state.time; }
+      if (c.latV * sgn > 3) {
+        c.speed -= c.speed * 1.2 * dt;
+        if (c.wallCd <= 0) { hit(c, 'wall'); c.wallCd = 0.5; }
+        if (near(c)) emitSparks(V3(fr.p.x + fr.r.x * (c.lat + sgn * 0.9), fr.p.y + fr.r.y * (c.lat + sgn * 0.9) + 0.5, fr.p.z + fr.r.z * (c.lat + sgn * 0.9)), 2, V3(-fr.f.x * c.speed * 0.2, 2, -fr.f.z * c.speed * 0.2), 6);
       }
       c.latV = -c.latV * 0.2;
     }
-    // ---- speed ----
+    // ---- speed: one rule book for everyone ----
     let target = L.base * (c.isPlayer ? 1 : c.skill);
     const racing = state.mode === 'race';
     if (!c.isPlayer && !state.demo) {
       const p = state.player, lead = p.s - c.s;           // > 0: rival is behind the player
-      if (lead > 30) target *= 1 + Math.min(L.aiRubber * 1.8, (lead - 30) / 500);
-      else if (lead < -80) target *= 1 - Math.min(0.04, (-lead - 80) / 2500);
-      target *= 1 - Math.min(0.07, Math.abs(kAhead) * 34);
+      if (lead > 40) target *= 1 + Math.min(L.aiRubber, (lead - 40) / 700);
+      else if (lead < -80) target *= 1 - Math.min(0.03, (-lead - 80) / 2500);
+      target *= 1 - Math.min(0.06, Math.abs(kAhead) * 30);
     }
-    // rival nitro: a meter fed by pads and time, burned on clear straights
-    if (!c.isPlayer && !state.demo && racing) {
-      c.nitro = Math.min(100, c.nitro + 3.5 * dt);
-      const clear = Math.abs(kAhead) < 0.004 && hazardsAhead(c, 60).length === 0;
-      if (!c.aiBurn && c.nitro >= 25 && clear) c.aiBurn = true;
-      if (c.aiBurn) { c.nitro -= 30 * dt; if (c.nitro < 3 || Math.abs(kAhead) > 0.007) c.aiBurn = false; }
-      c.nitroOn = c.aiBurn;
-    }
-    const padOn = c.boostT > 0;
-    if (padOn) c.boostT -= dt;
-    if (c.isPlayer) {
-      if (padOn) target *= 1.34;
-      c.nitroOn = false;
-      if (racing) {
-        if ((input.boost || (state.autopilot && c.nitro > 15)) && c.nitro > 0) { c.nitroOn = true; c.nitro = Math.max(0, c.nitro - 30 * dt); target *= 1.45; }
-        c.nitro = Math.min(100, c.nitro + (M.regen || 2) * dt);
-      }
-    } else if (padOn || c.nitroOn) target *= 1.28;
+    // road nitro: boost pads (and slipstream) fill the tank, a full-enough tank fires by itself
+    if (racing) {
+      if (!c.nitroOn && c.nitro >= NITRO_MIN) c.nitroOn = true;
+      if (c.nitroOn) { c.nitro -= NITRO_BURN * dt; if (c.nitro <= 0) { c.nitro = 0; c.nitroOn = false; } else target *= NITRO_GAIN; }
+    } else c.nitroOn = false;
+    // after a crash or bump the car limps for a moment
+    if (c.slowT > 0) { c.slowT -= dt; target *= c.slowF; }
     target *= 1 - fr.f.y * 0.1;
-    if (c.draft > 0) target *= 1.05;
-    const acc = c.nitroOn || padOn ? 2.6 : (c.speed < target ? 1.35 : 0.8);
+    if (c.draft > 0) target *= 1.04;
+    const acc = c.nitroOn ? 2.6 : (c.speed < target ? 1.35 : 0.8);
     c.speed += (target - c.speed) * (1 - Math.exp(-acc * dt));
     c.s += c.speed * dt;
     c.fr = Math.min(tr.n - 2, Math.floor(c.s / DS));
-    c.scrape = Math.max(0, c.scrape - dt);
     c.hitCd = Math.max(0, c.hitCd - dt); c.padCd = Math.max(0, c.padCd - dt);
+    c.bumpCd = Math.max(0, c.bumpCd - dt); c.wallCd = Math.max(0, c.wallCd - dt);
     if (c.spin > 0) c.spin = Math.max(0, c.spin - dt / 0.9);
   }
 
-  // boost pads work for every car; hazards hurt every car
+  const NITRO_MIN = 8, NITRO_BURN = 24, NITRO_GAIN = 1.42, PAD_FILL = 36;
+  // what a knock does: [speed kept, limp seconds, limp speed factor, spin out, nitro kept]
+  const HITS = {
+    crash: [0.5, 1.5, 0.6, 1, 0.5], laser: [0.55, 1.3, 0.62, 1, 0.5], cones: [0.85, 0.6, 0.85, 0, 0.9],
+    bump: [0.82, 0.8, 0.82, 0, 0.85], nudge: [0.95, 0.35, 0.93, 0, 1], wall: [0.96, 0.35, 0.9, 0, 1]
+  };
+  const near = c => c.isPlayer || Math.abs(c.s - state.player.s) < 60;
+  function hit(c, kind) {
+    const h = HITS[kind];
+    c.speed *= h[0];
+    if (c.slowT > 0) c.slowF = Math.min(c.slowF, h[2]); else c.slowF = h[2];
+    c.slowT = Math.max(c.slowT, h[1]);
+    if (h[3]) c.spin = 1;
+    c.nitro *= h[4]; if (h[4] < 1) c.nitroOn = false;
+    if (c.isPlayer) {
+      if (kind === 'crash' || kind === 'laser') { state.stats.crashes++; toast('CRASH!', '#ff5a3a'); audio.crash(); kick(1); }
+      else if (kind === 'cones' || kind === 'bump') { toast('BUMP!', '#ffb347'); audio.tone(200, 0.1, 'square', 0.1, 90); kick(0.5); }
+      else if (kind === 'wall') audio.tone(300, 0.1, 'sawtooth', 0.08, 120);
+    } else if (near(c) && (kind === 'crash' || kind === 'laser')) audio.tone(160, 0.25, 'sawtooth', 0.1, 50);
+  }
+
+  // boost pads fill every car's tank; hazards hurt every car
   function pickups(c) {
     const w = state.world, F = w.feats, t = state.time, st = state.stats;
     const idx = c.s / DS;
     for (const p of F.pads) {
       if (Math.abs(p.i - idx) < 5 && Math.abs(c.lat - p.lat) < 4.2 && c.padCd <= 0) {
-        c.padCd = 1.0; c.boostT = 1.8; c.nitro = Math.min(100, c.nitro + 20);
-        if (c.isPlayer) { st.boosts++; toast('BOOST!', '#ffe45c'); audio.boost(); kick(0.5); }
+        c.padCd = 1.0; c.nitro = Math.min(100, c.nitro + PAD_FILL * (w.L.mech.padMult || 1)); c.speed += 6;
+        if (c.isPlayer) { st.boosts++; toast('NITRO!', '#33d6ff'); audio.boost(); kick(0.5); }
       }
     }
     if (c.hitCd > 0) return;
@@ -390,17 +397,17 @@
       if (Math.abs(o.i - idx) > 1.6) continue;
       for (const sp of w.blocked(o, t)) {
         if (c.lat > sp[0] - 1.0 && c.lat < sp[1] + 1.0) {
-          const soft = o.type === 'cones';
-          c.hitCd = soft ? 0.6 : 1.3; c.speed *= soft ? 0.82 : (o.type === 'laser' ? 0.55 : 0.45); c.spin = soft ? 0 : 1;
-          if (c.isPlayer) { c.nitro = Math.max(0, c.nitro - (soft ? 3 : 10)); st.crashes++; toast(soft ? 'BUMP' : 'CRASH!', '#ff5a3a'); audio.crash(); kick(soft ? 0.4 : 1); }
-          else { c.nitro = Math.max(0, c.nitro - 15); c.aiBurn = false; }
-          frameAt(c.s, fr); emitSparks(V3(fr.p.x + fr.r.x * c.lat, fr.p.y + 1, fr.p.z + fr.r.z * c.lat), soft ? 8 : 24, V3(0, 4, 0), 14);
+          const kind = o.type === 'cones' ? 'cones' : o.type === 'laser' ? 'laser' : 'crash';
+          c.hitCd = kind === 'cones' ? 0.6 : 1.3;
+          hit(c, kind);
+          if (near(c)) { frameAt(c.s, fr); emitSparks(V3(fr.p.x + fr.r.x * c.lat, fr.p.y + 1, fr.p.z + fr.r.z * c.lat), kind === 'cones' ? 8 : 24, V3(0, 4, 0), 14); }
           return;
         }
       }
     }
   }
 
+  // car-to-car contact: the car behind takes the bigger hit, the car in front gets a nudge
   function carCollisions(dt) {
     const cars = state.cars;
     for (let a = 0; a < cars.length; a++) for (let b = a + 1; b < cars.length; b++) {
@@ -408,20 +415,28 @@
       if (Math.abs(ds) < 4.4 && Math.abs(A.lat - B.lat) < 2.1) {
         const push = (A.lat >= B.lat ? 1 : -1) * 7 * dt;
         A.lat += push; B.lat -= push;
-        const back = ds < 0 ? A : B;
-        if (back.isPlayer) { back.speed -= back.speed * 0.5 * dt; if (!back.bumpT || state.time - back.bumpT > 0.5) { audio.tone(200, 0.08, 'square', 0.08, 90); back.bumpT = state.time; emitSparks(back.mesh.position, 4, V3(0, 2, 0), 6); } }
-        else back.speed -= back.speed * 0.6 * dt;
+        const back = ds < 0 ? A : B, front = back === A ? B : A;
+        if (back.bumpCd <= 0 && front.bumpCd <= 0) {
+          back.bumpCd = front.bumpCd = 0.8;
+          const side = Math.abs(ds) < 2.2;                  // side by side: both trade paint equally
+          hit(back, 'bump'); hit(front, side ? 'bump' : 'nudge');
+          if (near(back) || near(front)) emitSparks(V3().addVectors(back.mesh.position, front.mesh.position).multiplyScalar(0.5).setY(back.mesh.position.y + 0.6), 8, V3(0, 2, 0), 8);
+        }
       }
     }
   }
 
+  // slipstream: sitting right behind any car fills the nitro tank, for rivals too
   function drafting() {
-    const p = state.player, M = state.world.L.mech;
-    p.draft = 0;
-    for (const o of state.cars) {
-      if (o === p) continue; const d = o.s - p.s;
-      if (d > 3 && d < 20 && Math.abs(o.lat - p.lat) < 2.8) { p.draft = 1; p.nitro = Math.min(100, p.nitro + (M.draft || 8) * state.dt); }
+    const M = state.world.L.mech, rate = (M.draft || 14) * 0.5 * state.dt;
+    for (const c of state.cars) {
+      c.draft = 0;
+      for (const o of state.cars) {
+        if (o === c) continue; const d = o.s - c.s;
+        if (d > 3 && d < 20 && Math.abs(o.lat - c.lat) < 2.8) { c.draft = 1; c.nitro = Math.min(100, c.nitro + rate); break; }
+      }
     }
+    const p = state.player;
     if (p.draft && (!p.draftToast || state.time - p.draftToast > 2.5)) { toast('SLIPSTREAM', '#9fe7ff'); p.draftToast = state.time; }
   }
 
@@ -443,8 +458,8 @@
     c.mesh.quaternion.copy(_q).multiply(_q2);
     c.wheelRot -= c.speed * dt / c.dims.wr;
     c.parts.wheels.forEach(w => { w.rotation.x = c.wheelRot; });
-    const fl = c.nitroOn || c.boostT > 0 ? 1 : (c.speed > 25 ? 0.14 : 0);
-    c.parts.flames.forEach(f => { f.scale.z = fl * (3.2 + Math.random() * 1.2) + 0.01; f.position.z = c.dims.L * 0.99 + 0.5 * f.scale.z; f.scale.x = f.scale.y = 1 + fl * 0.6; f.material.color.setHex(c.nitroOn || c.boostT > 0 ? 0x4fd8ff : 0xffa73a); });
+    const fl = c.nitroOn ? 1 : (c.speed > 25 ? 0.14 : 0);
+    c.parts.flames.forEach(f => { f.scale.z = fl * (3.2 + Math.random() * 1.2) + 0.01; f.position.z = c.dims.L * 0.99 + 0.5 * f.scale.z; f.scale.x = f.scale.y = 1 + fl * 0.6; f.material.color.setHex(c.nitroOn ? 0x4fd8ff : 0xffa73a); });
   }
 
   /* ---------------- camera ---------------- */
@@ -477,10 +492,10 @@
       lookAt = _b.copy(car).addScaledVector(fr.u, 1);
       fovT = 62;
     } else {
-      const back = 8.2 + sf * 1.2 + (p.nitroOn || p.boostT > 0 ? 1.4 : 0), h = 3.1 + sf * 0.2;
+      const back = 8.2 + sf * 1.2 + (p.nitroOn ? 1.4 : 0), h = 3.1 + sf * 0.2;
       desiredPos = _a.copy(car).addScaledVector(fr.f, -back).addScaledVector(fr.u, h).addScaledVector(fr.r, -p.lat * 0.18);
       lookAt = _b.copy(car).addScaledVector(fr.f, 13).addScaledVector(fr.u, 1.2);
-      fovT = 66 + sf * 14 + (p.nitroOn || p.boostT > 0 ? 12 : 0);
+      fovT = 66 + sf * 14 + (p.nitroOn ? 12 : 0);
     }
     if (state.debugCam) { const o = state.debugCam; desiredPos = _a.copy(car).addScaledVector(fr.r, o[0]).addScaledVector(fr.u, o[1]).addScaledVector(fr.f, o[2]); lookAt = _b.copy(car).addScaledVector(fr.u, 0.7); fovT = o[3] || 45; cam.init = false; }
     if (!cam.init) { cam.pos.copy(desiredPos); cam.look.copy(lookAt); cam.up.copy(up); cam.fov = fovT; cam.init = true; }
@@ -492,8 +507,8 @@
     camera.lookAt(cam.look);
     const portrait = camera.aspect < 1;
     camera.fov = portrait ? clamp(cam.fov * 1.32, 60, 100) : cam.fov;
-    // lift the scene so the car sits above the dashboard and controls
-    const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.17 : state.layout === 'ctl-portrait' ? 0.07 : 0.11;
+    // nudge the view so the car clears the on-screen controls
+    const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.05 : state.layout === 'ctl-portrait' ? 0 : 0.03;
     const vw = window.innerWidth, vh = window.innerHeight;
     if (shift) camera.setViewOffset(vw, vh, 0, Math.round(vh * shift), vw, vh); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
@@ -502,7 +517,7 @@
   }
   function updateSpeedLines(dt) {
     const p = state.player, spd = state.mode === 'race' || state.mode === 'menu' ? p.speed : 0;
-    const f = clamp((spd - 30) / 90, 0, 1) + (p.nitroOn || p.boostT > 0 ? 0.4 : 0);
+    const f = clamp((spd - 30) / 90, 0, 1) + (p.nitroOn ? 0.4 : 0);
     slMat.opacity = clamp(f * 0.35, 0, 0.5);
     const len = 2 + spd * 0.06;
     for (let i = 0; i < SL; i++) {
@@ -514,73 +529,75 @@
   }
 
   /* ---------------- HUD ---------------- */
-  const hud = { pos: $('pos'), time: $('time'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), lvl: $('lvlname'), intro: $('intro'), top: $('topSpeed') };
+  const hud = { pos: $('pos'), time: $('time'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), intro: $('intro'), nitroBox: $('nitroBox') };
   let lastPos = -1;
   function toast(txt, color) { hud.toast.textContent = txt; hud.toast.style.color = color || '#fff'; hud.toast.classList.remove('show'); void hud.toast.offsetWidth; hud.toast.classList.add('show'); }
   function flash(a) { hud.flash.style.opacity = a; setTimeout(() => { hud.flash.style.opacity = 0; }, 90); }
   const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
 
-  // --- gauges: a speedometer (270 degree sweep, red line near the limit) and a nitro "gas" gauge ---
-  const MAXK = 400, REDK = 320, KMH = 2.0;
+  // --- speedometer: transparent segmented arc, big digital speed, gear; nitro: segmented tank bar ---
+  const MAXK = 400, REDK = 320, KMH = 2.0, SEGS = 40, NSEG = 12;
   const pt = (cx, cy, r, deg) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)];
-  const arc = (cx, cy, r, d0, d1) => { const a = pt(cx, cy, r, d0), b = pt(cx, cy, r, d1); return 'M' + a[0].toFixed(2) + ' ' + a[1].toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + (d1 - d0 > 180 ? 1 : 0) + ' 1 ' + b[0].toFixed(2) + ' ' + b[1].toFixed(2); };
-  const gauge = { needle: null, prog: null, speed: null, gear: null, gNeedle: null, gProg: null, gLabel: null, last: -1, lastN: -1, lastG: 0 };
+  const F = n => n.toFixed(1);
+  const gauge = { segs: [], nsegs: [], speed: null, gear: null, pct: null, lit: -1, nlit: -1, last: -1, lastG: 0, mode: '' };
+  const segColor = k => k >= SEGS * REDK / MAXK ? '#ff4b3a' : k >= SEGS * 0.55 ? '#ffc247' : '#ffffff';
   function buildGauges() {
-    const d0 = -135, d1 = 135, sp = k => d0 + (d1 - d0) * k / MAXK;
-    let g = '<defs><radialGradient id="dg" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#1b2342"/><stop offset="1" stop-color="#070a18"/></radialGradient></defs>';
-    g += '<circle cx="100" cy="100" r="97" fill="url(#dg)" stroke="rgba(255,255,255,.28)" stroke-width="2"/><circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>';
-    g += '<path d="' + arc(100, 100, 82, d0, d1) + '" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7" stroke-linecap="round"/>';
-    g += '<path d="' + arc(100, 100, 82, sp(REDK), d1) + '" fill="none" stroke="#ff3b30" stroke-width="7" stroke-linecap="round" opacity=".9"/>';
-    g += '<path id="dProg" d="' + arc(100, 100, 82, d0, d1) + '" pathLength="100" stroke-dasharray="0 100" fill="none" stroke="#ffb347" stroke-width="7" stroke-linecap="round"/>';
-    for (let k = 0; k <= MAXK; k += 20) {
-      const major = k % 100 === 0, a = pt(100, 100, 70, sp(k)), b = pt(100, 100, major ? 60 : 65, sp(k));
-      g += '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + (k >= REDK ? '#ff6a5e' : '#e9eefc') + '" stroke-width="' + (major ? 2.4 : 1.2) + '"/>';
-      if (major) { const t = pt(100, 100, 48, sp(k)); g += '<text x="' + t[0].toFixed(1) + '" y="' + (t[1] + 4).toFixed(1) + '" fill="#cfd8f5" font-size="11" font-weight="700" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">' + k + '</text>'; }
+    const cx = 120, cy = 120, r0 = 92, r1 = 108, a0 = -112, a1 = 112, step = (a1 - a0) / SEGS;
+    let g = '<defs><radialGradient id="spdBg" cx="50%" cy="85%" r="60%"><stop offset="0" stop-color="#050816" stop-opacity=".55"/><stop offset="1" stop-color="#050816" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="nosFill" x1="0" x2="1"><stop offset="0" stop-color="#ff8a1f"/><stop offset="1" stop-color="#ffc247"/></linearGradient></defs>';
+    g += '<ellipse cx="120" cy="104" rx="104" ry="64" fill="url(#spdBg)"/>';
+    for (let k = 0; k < SEGS; k++) {
+      const d0 = a0 + k * step + 0.7, d1 = a0 + (k + 1) * step - 0.7;
+      const p = [pt(cx, cy, r0, d0), pt(cx, cy, r1, d0), pt(cx, cy, r1, d1), pt(cx, cy, r0, d1)];
+      g += '<polygon class="sg" points="' + p.map(q => F(q[0]) + ',' + F(q[1])).join(' ') + '" fill="rgba(255,255,255,.14)"/>';
     }
-    g += '<text id="dGear" x="100" y="86" fill="#9fb0e0" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">GEAR 1</text>';
-    g += '<text id="dSpeed" x="100" y="128" fill="#fff" font-size="40" font-weight="900" font-style="italic" text-anchor="middle" font-family="Segoe UI,Arial,sans-serif">0</text>';
-    g += '<text x="100" y="146" fill="#9fb0e0" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">KM/H</text>';
-    g += '<g id="dNeedle"><polygon points="100,22 96.5,100 103.5,100" fill="#ff5a3a"/><circle cx="100" cy="100" r="9" fill="#222a4a" stroke="#ff5a3a" stroke-width="3"/></g>';
-    $('dial').innerHTML = g;
-    // nitro gauge: E ... F half-dial
-    const e0 = -95, e1 = 95;
-    let n = '<defs><radialGradient id="ng" cx="50%" cy="70%" r="75%"><stop offset="0" stop-color="#1b2342"/><stop offset="1" stop-color="#070a18"/></radialGradient></defs>';
-    n += '<path d="M8 100 A62 62 0 0 1 132 100 L132 104 Q132 108 128 108 L12 108 Q8 108 8 104 Z" fill="url(#ng)" stroke="rgba(255,255,255,.28)" stroke-width="2"/>';
-    n += '<path d="' + arc(70, 92, 50, e0, e1) + '" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7" stroke-linecap="round"/>';
-    n += '<path id="gProg" d="' + arc(70, 92, 50, e0, e1) + '" pathLength="100" stroke-dasharray="0 100" fill="none" stroke="#ffb347" stroke-width="7" stroke-linecap="round"/>';
-    for (let k = 0; k <= 4; k++) { const a = pt(70, 92, 58, e0 + (e1 - e0) * k / 4), b = pt(70, 92, 52, e0 + (e1 - e0) * k / 4); n += '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="#e9eefc" stroke-width="1.6"/>'; }
-    n += '<text x="22" y="100" fill="#cfd8f5" font-size="10" font-weight="800" font-family="Segoe UI,Arial,sans-serif">E</text><text x="112" y="100" fill="#cfd8f5" font-size="10" font-weight="800" font-family="Segoe UI,Arial,sans-serif">F</text>';
-    n += '<path d="M70 52 C62 62 60 70 66 76 C64 70 70 66 70 60 C74 66 78 70 74 77 C80 72 80 62 70 52 Z" fill="#ffb347" opacity=".95"/>';
-    n += '<text id="gLabel" x="70" y="104" fill="#9fb0e0" font-size="9" font-weight="800" text-anchor="middle" letter-spacing="2" font-family="Segoe UI,Arial,sans-serif">NITRO</text>';
-    n += '<g id="gNeedle"><polygon points="70,44 67.5,92 72.5,92" fill="#ff5a3a"/><circle cx="70" cy="92" r="6" fill="#222a4a" stroke="#ff5a3a" stroke-width="2.5"/></g>';
-    $('gas').innerHTML = n;
-    gauge.needle = $('dNeedle'); gauge.prog = $('dProg'); gauge.speed = $('dSpeed'); gauge.gear = $('dGear');
-    gauge.gNeedle = $('gNeedle'); gauge.gProg = $('gProg'); gauge.gLabel = $('gLabel');
+    const e0 = pt(cx, cy, 86, a0), e1 = pt(cx, cy, 86, a1);
+    g += '<path d="M' + F(e0[0]) + ' ' + F(e0[1]) + ' A86 86 0 1 1 ' + F(e1[0]) + ' ' + F(e1[1]) + '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.2"/>';
+    for (const k of [0, 100, 200, 300, 400]) { const q = pt(cx, cy, 76, a0 + (a1 - a0) * k / MAXK); g += '<text x="' + F(q[0]) + '" y="' + F(q[1] + 3) + '" fill="' + (k >= REDK ? '#ff7a6e' : 'rgba(235,240,255,.75)') + '" font-size="9" font-weight="700" text-anchor="middle" font-family="Chakra Petch,Segoe UI,sans-serif">' + k + '</text>'; }
+    g += '<text id="spdGear" x="120" y="62" fill="#ffc247" font-size="13" font-weight="800" text-anchor="middle" letter-spacing="1" font-family="Saira Condensed,Arial Narrow,sans-serif">GEAR 1</text>';
+    g += '<text id="spdNum" x="120" y="110" fill="#fff" font-size="54" font-weight="900" font-style="italic" text-anchor="middle" font-family="Saira Condensed,Arial Narrow,sans-serif">0</text>';
+    g += '<text x="120" y="126" fill="rgba(235,240,255,.75)" font-size="10" font-weight="700" text-anchor="middle" letter-spacing="3" font-family="Chakra Petch,Segoe UI,sans-serif">KM/H · LIMIT ' + MAXK + '</text>';
+    $('spd').innerHTML = g;
+    gauge.segs = [...$('spd').querySelectorAll('.sg')];
+    gauge.speed = $('spdNum'); gauge.gear = $('spdGear');
+    // nitro tank
+    let n = '<path d="M14 6 C9 12 8 16 11 20 C10 16 14 14 14 10 C16 14 18 16 16 20 C20 17 20 11 14 6 Z" fill="#33d6ff"/>';
+    n += '<text x="26" y="18" fill="#fff" font-size="13" font-weight="800" letter-spacing="2" font-family="Saira Condensed,Arial Narrow,sans-serif">NITRO</text>';
+    n += '<text id="nosPct" x="156" y="18" fill="rgba(235,240,255,.8)" font-size="12" font-weight="800" text-anchor="end" font-family="Saira Condensed,Arial Narrow,sans-serif">0%</text>';
+    const w = 11.2, gap = 1.6, x0 = 6, y0 = 26, h = 20, sk = 5;
+    for (let k = 0; k < NSEG; k++) { const x = x0 + k * (w + gap); n += '<polygon class="ns" points="' + F(x + sk) + ',' + y0 + ' ' + F(x + w + sk) + ',' + y0 + ' ' + F(x + w) + ',' + (y0 + h) + ' ' + F(x) + ',' + (y0 + h) + '" fill="rgba(255,255,255,.14)"/>'; }
+    n += '<text x="6" y="56" fill="rgba(235,240,255,.6)" font-size="7.5" font-weight="700" letter-spacing="1.5" font-family="Chakra Petch,Segoe UI,sans-serif">HIT PADS TO FILL</text>';
+    $('nos').innerHTML = n;
+    gauge.nsegs = [...$('nos').querySelectorAll('.ns')]; gauge.pct = $('nosPct');
   }
   buildGauges();
   const GEARS = [0, 45, 95, 150, 215, 290];
   function updateGauges(kmh, nitro, boosting) {
-    const f = clamp(kmh / MAXK, 0, 1), ang = -135 + 270 * f;
-    gauge.needle.setAttribute('transform', 'rotate(' + ang.toFixed(1) + ' 100 100)');
-    gauge.prog.setAttribute('stroke-dasharray', (f * 100).toFixed(1) + ' 100');
-    gauge.prog.setAttribute('stroke', kmh >= REDK ? '#ff3b30' : boosting ? '#4fd8ff' : '#ffb347');
+    const lit = Math.round(clamp(kmh / MAXK, 0, 1) * SEGS);
+    if (lit !== gauge.lit) { gauge.lit = lit; gauge.segs.forEach((el, k) => el.setAttribute('fill', k < lit ? segColor(k) : 'rgba(255,255,255,.14)')); }
     const sk = Math.round(kmh);
-    if (sk !== gauge.last) { gauge.last = sk; gauge.speed.textContent = sk; let g = 1; for (let i = 0; i < GEARS.length; i++) if (kmh >= GEARS[i]) g = i + 1; if (g !== gauge.lastG) { gauge.lastG = g; gauge.gear.textContent = 'GEAR ' + g; } }
-    const nf = clamp(nitro / 100, 0, 1);
-    gauge.gNeedle.setAttribute('transform', 'rotate(' + (-95 + 190 * nf).toFixed(1) + ' 70 92)');
-    gauge.gProg.setAttribute('stroke-dasharray', (nf * 100).toFixed(1) + ' 100');
-    gauge.gProg.setAttribute('stroke', boosting ? '#4fd8ff' : nf < 0.2 ? '#ff5a3a' : '#ffb347');
+    if (sk !== gauge.last) {
+      gauge.last = sk; gauge.speed.textContent = sk;
+      let g = 1; for (let i = 0; i < GEARS.length; i++) if (kmh >= GEARS[i]) g = i + 1;
+      if (g !== gauge.lastG) { gauge.lastG = g; gauge.gear.textContent = 'GEAR ' + g; }
+    }
+    const nl = Math.ceil(clamp(nitro / 100, 0, 1) * NSEG - 0.01), mode = boosting ? 'b' : 'c';
+    if (nl !== gauge.nlit || mode !== gauge.mode) {
+      gauge.nlit = nl; gauge.mode = mode;
+      gauge.nsegs.forEach((el, k) => el.setAttribute('fill', k < nl ? (boosting ? '#33d6ff' : 'url(#nosFill)') : 'rgba(255,255,255,.14)'));
+      gauge.pct.textContent = boosting ? 'BOOST' : Math.round(nitro) + '%';
+      hud.nitroBox.classList.toggle('on', boosting);
+    }
   }
   function updateHUD() {
     const p = state.player, rk = ranking();
     const place = rk.indexOf(p) + 1;
-    if (place !== lastPos) { lastPos = place; hud.pos.innerHTML = '<b>' + place + '</b><span>' + ['st', 'nd', 'rd', 'th', 'th', 'th', 'th'][place - 1] + '</span>'; }
+    if (place !== lastPos) { lastPos = place; hud.pos.innerHTML = '<b>' + place + '</b><span>/' + state.cars.length + '</span>'; }
     const kmh = p.speed * KMH;
     state.stats.top = Math.max(state.stats.top, kmh);
-    updateGauges(kmh, p.nitro, p.nitroOn || p.boostT > 0);
-    hud.top.textContent = 'TOP ' + Math.round(state.stats.top) + ' · LIMIT ' + MAXK;
+    updateGauges(kmh, p.nitro, p.nitroOn);
     hud.time.textContent = fmt(state.raceT);
-    hud.vig.style.opacity = p.nitroOn || p.boostT > 0 ? 0.9 : 0;
+    hud.vig.style.opacity = p.nitroOn ? 0.9 : 0;
     drawMini();
   }
 
@@ -625,10 +642,13 @@
     spawnRace(true);
     state.leadS = state.world.track.startS + 120; state.time = 0;
     show('hud', false); show('menu', true); show('levels', false); show('result', false); show('pauseScr', false);
-    const best = Object.keys(save.best).length;
-    $('menuBest').textContent = best ? 'Unlocked ' + Math.min(save.unlocked, 8) + ' / 8 tracks · ' + Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0) + ' ★' : 'Fly through rings, grab boost pads, beat 5 rivals.';
-    $('playBtn').textContent = save.unlocked > 1 || best ? '▶ Continue · Level ' + Math.min(save.unlocked, 8) : '▶ Play';
+    const cur = Math.min(save.unlocked, 8), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
+    $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.done || i + 1 < cur ? 'done' : i + 1 === cur ? 'now' : '') + '"></i>').join('');
+    $('menuBest').textContent = save.done ? 'All 8 tracks cleared · ' + stars + ' / 24 ★ · pick any track to race again.'
+      : cur > 1 ? 'Career: track ' + cur + ' of 8 · ' + stars + ' ★. Finish top 3 to move on.' : 'Hit the boost pads for nitro, dodge the hazards, finish top 3.';
+    setBtn('playBtn', save.done ? 'Choose track' : cur > 1 ? 'Continue · Track ' + cur : 'Play');
   }
+  function setBtn(id, txt) { $(id).querySelector('span').textContent = txt; }
 
   function startLevel(idx) {
     audio.init();
@@ -639,10 +659,8 @@
       state.mode = 'countdown'; state.countT = 0; state.lastCount = 4; state.lastBeep = 4; cam.init = false; state.paused = false;
       show('menu', false); show('levels', false); show('result', false); show('pauseScr', false); show('hud', true);
       const L = state.world.L;
-      hud.lvl.textContent = 'Level ' + L.id + ' · ' + L.name;
-      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + '</div>';
+      hud.intro.innerHTML = '<div class="n">LEVEL ' + L.id + ' OF 8</div><div class="t">' + L.name.toUpperCase() + '</div><div class="w">' + L.twist + '</div><div class="c">Your ride: ' + CARS[L.car].name + (state.layout === 'ctl-portrait' ? ' · hold &amp; slide to steer' : state.layout === 'ctl-desktop' ? ' · ← → to steer' : '') + '</div>';
       hud.count.textContent = ''; hud.time.textContent = '0:00.0'; lastPos = -1;
-      input.boost = false;
       updateCamera(0.016); placeAll(0.016);
     });
   }
@@ -667,14 +685,19 @@
     save.best[L.id] = { time: place <= 3 ? Math.min(prev.time || 1e9, p.finishTime) : prev.time, stars: Math.max(prev.stars || 0, stars), place: Math.min(prev.place || 9, place) };
     if (!save.best[L.id].time) delete save.best[L.id].time;
     const passed = place <= 3;
-    if (passed && idx + 2 > save.unlocked && idx < 7) save.unlocked = idx + 2;
+    if (passed && idx < 7 && idx + 2 > save.unlocked) save.unlocked = idx + 2;
+    if (passed && idx === 7) save.done = true;
     persist();
-    $('resPlace').textContent = ord + (place === 1 ? ' 🏆' : '');
+    $('resLevel').textContent = 'Track ' + L.id + ' · ' + L.name;
+    $('resPlace').innerHTML = place + '<sup>' + ['ST', 'ND', 'RD', 'TH', 'TH', 'TH'][place - 1] + '</sup>';
     $('resStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    $('resTime').textContent = 'Time ' + fmt(p.finishTime) + ' · Boosts ' + state.stats.boosts + ' · Crashes ' + state.stats.crashes;
-    $('resBest').textContent = passed && save.best[L.id].time ? 'Best ' + fmt(save.best[L.id].time) + (newBest ? ' · NEW BEST!' : '') : '';
-    $('resMsg').textContent = passed ? (idx < 7 ? 'Podium! Level ' + (idx + 2) + ' unlocked.' : 'You conquered all 8 tracks!') : 'Finish top 3 to unlock the next track. Grab boost pads and rings!';
+    const best = save.best[L.id].time;
+    const rows = [['Time', fmt(p.finishTime)], ['Best', best ? fmt(best) + (newBest && passed ? ' NEW' : '') : '—'], ['Top speed', Math.round(state.stats.top) + ' km/h'], ['Nitro pads', state.stats.boosts], ['Crashes', state.stats.crashes]];
+    $('resStats').innerHTML = rows.map(r => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+    $('resMsg').textContent = !passed ? 'Finish in the top 3 to unlock the next track.'
+      : idx === 7 ? 'Career complete! Every track is now open to replay.' : save.done ? 'Podium finish.' : 'Podium! Track ' + (idx + 2) + ' is next.';
     $('nextBtn').style.display = passed && idx < 7 ? '' : 'none';
+    setBtn('nextBtn', 'Next track ▶');
     show('hud', false); show('result', true);
   }
 
@@ -736,35 +759,44 @@
       for (const c of state.cars) { if (c.s > w.track.length - 40) { c.s = w.track.length - 40; c.speed *= 0.9; } }
       placeAll(dt); updateCamera(dt);
       if (state.mode === 'race') updateHUD();
-      audio.engine(clamp(p.speed / (w.L.base * 1.5), 0, 1), p.nitroOn || p.boostT > 0, true);
+      audio.engine(clamp(p.speed / (w.L.base * 1.5), 0, 1), p.nitroOn, true);
     }
     w.update(dt, state.time, camera, _vel);
     updateSparks(dt); updateSpeedLines(dt);
   }
 
   // simple autopilot used by the headless tests (window.SkyGame.autoplay): drives like a rival, minus the rubber band
-  function autopilotInput(c) { c.lane0 = 0; c.laneAmp = 0; }
+  function autopilotInput(c) { c.lane0 = 0; c.laneAmp = 0; c.react = 90; }
 
   /* ---------------- UI wiring ---------------- */
+  // career: tracks unlock one after another and only the next one can be raced, until all 8 are cleared
   function buildLevelGrid() {
-    const g = $('grid'); g.innerHTML = '';
+    const g = $('grid'), cur = Math.min(save.unlocked, 8); g.innerHTML = '';
+    $('gridNote').textContent = save.done ? 'Free play · all tracks open' : 'Career · clear every track to unlock free play';
     LEVELS.forEach((L, i) => {
-      const c = document.createElement('button'); c.className = 'card' + (i + 1 > save.unlocked ? ' locked' : '');
+      const n = i + 1, open = save.done || n === cur, cleared = save.done || n < cur;
+      const c = document.createElement('button');
+      c.className = 'card' + (open ? (save.done ? '' : ' next') : cleared ? ' cleared' : ' locked');
       const s = L.theme.sky; c.style.background = 'linear-gradient(180deg,' + s.top + ',' + s.mid + ' 60%,' + s.hor + ')';
       const b = save.best[L.id], stars = b ? b.stars : 0;
-      c.innerHTML = '<div class="n">' + L.id + '</div><div class="st">' + '★'.repeat(stars) + '<span style="opacity:.35">' + '★'.repeat(3 - stars) + '</span></div><div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
-      c.addEventListener('click', () => { if (i + 1 <= save.unlocked) startLevel(i); });
+      const chip = !save.done && n === cur ? '<span class="chip next">NEXT</span>' : cleared ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : '<span class="chip">🔒</span>';
+      c.innerHTML = '<div class="n">' + L.id + '</div>' + chip + '<div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
+      if (!open) c.setAttribute('aria-disabled', 'true');
+      c.addEventListener('click', () => {
+        if (open) startLevel(i);
+        else $('gridNote').textContent = cleared ? 'Cleared! Finish all 8 tracks to replay any of them.' : 'Locked · finish track ' + cur + ' first.';
+      });
       g.appendChild(c);
     });
   }
-  $('playBtn').addEventListener('click', () => startLevel(Math.min(save.unlocked, 8) - 1));
+  $('playBtn').addEventListener('click', () => { if (save.done) { buildLevelGrid(); show('menu', false); show('levels', true); } else startLevel(Math.min(save.unlocked, 8) - 1); });
   $('levelsBtn').addEventListener('click', () => { buildLevelGrid(); show('menu', false); show('levels', true); });
-  $('levelsBack').addEventListener('click', () => { show('levels', false); show('menu', true); });
-  $('soundBtn').addEventListener('click', e => { audio.init(); audio.setMute(save.sound); e.target.textContent = 'Sound: ' + (save.sound ? 'On' : 'Off'); });
-  $('soundBtn').textContent = 'Sound: ' + (save.sound ? 'On' : 'Off');
+  $('levelsBack').addEventListener('click', () => { if (state.mode !== 'menu') { startMenuDemo(); return; } show('levels', false); show('menu', true); });
+  $('soundBtn').addEventListener('click', () => { audio.init(); audio.setMute(save.sound); setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off'); });
+  setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off');
   $('nextBtn').addEventListener('click', () => startLevel(Math.min(state.levelIdx + 1, 7)));
   $('retryBtn').addEventListener('click', () => startLevel(state.levelIdx));
-  $('resLevelsBtn').addEventListener('click', () => { buildLevelGrid(); show('result', false); show('levels', true); state.mode = 'menu'; });
+  $('resLevelsBtn').addEventListener('click', () => { startMenuDemo(); buildLevelGrid(); show('menu', false); show('levels', true); });
   $('pause').addEventListener('click', togglePause);
   $('resumeBtn').addEventListener('click', togglePause);
   $('pRetryBtn').addEventListener('click', () => { state.paused = false; startLevel(state.levelIdx); });
