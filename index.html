@@ -2,112 +2,166 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0a1030">
 <title>Sky Racing 🏎️</title>
 <style>
-  html,body{margin:0;height:100%;background:#0b1530;overflow:hidden;touch-action:none;font-family:system-ui,sans-serif}
-  canvas{display:block;width:100%;height:100%}
+  :root{--accent:#ffb347;--glass:rgba(10,16,36,.55);--line:rgba(255,255,255,.18)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;background:#0a1030;overflow:hidden;touch-action:none;overscroll-behavior:none;
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:#fff}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hidden{display:none!important}
+  button{font:inherit;color:inherit;border:0;cursor:pointer}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  #hud>*{position:absolute}
+  #pos{left:14px;top:12px;font-weight:900;font-size:46px;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.6);font-style:italic}
+  #pos span{font-size:20px;opacity:.7;margin-left:2px}
+  #mini{left:12px;top:70px;width:104px;height:104px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(4px)}
+  #topc{left:50%;top:12px;transform:translateX(-50%);text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.7)}
+  #lvlname{font-size:12px;letter-spacing:.18em;text-transform:uppercase;opacity:.85}
+  #time{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+  #speed{right:16px;top:12px;text-align:right;font-style:italic;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  #speed b{font-size:46px;font-weight:900;font-variant-numeric:tabular-nums}
+  #speed span{font-size:13px;opacity:.75;margin-left:4px}
+  #nitroWrap{left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(56vw,340px)}
+  #nitroLbl{font-size:11px;letter-spacing:.2em;text-align:center;opacity:.85;margin-bottom:4px;text-shadow:0 1px 6px #000}
+  #nitro{height:12px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid var(--line);overflow:hidden}
+  #nitroFill{height:100%;width:40%;border-radius:8px;background:linear-gradient(90deg,#ff9d2e,#ffe45c);box-shadow:0 0 14px #ffb347}
+  #nitroFill.on{background:linear-gradient(90deg,#27d9ff,#bff6ff);box-shadow:0 0 18px #27d9ff}
+  #boost{right:calc(14px + env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom));pointer-events:auto;width:92px;height:92px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffe45c,#ff8a1f 70%);font-weight:900;letter-spacing:.06em;font-size:15px;color:#2a1200;
+    box-shadow:0 6px 22px rgba(255,140,30,.55),inset 0 -4px 10px rgba(0,0,0,.25);touch-action:none}
+  #boost.down{transform:scale(.93);filter:brightness(1.15)}
+  #hintL,#hintR{bottom:calc(30px + env(safe-area-inset-bottom));font-size:34px;opacity:.28}
+  #hintL{left:22px} #hintR{right:130px}
+  #toast{left:50%;top:26%;transform:translateX(-50%);font-weight:900;font-size:30px;font-style:italic;letter-spacing:.04em;
+    text-shadow:0 3px 14px rgba(0,0,0,.7);opacity:0;white-space:nowrap}
+  #toast.show{animation:pop .9s ease-out}
+  @keyframes pop{0%{opacity:0;transform:translateX(-50%) scale(.6)}15%{opacity:1;transform:translateX(-50%) scale(1.1)}70%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-18px) scale(1)}}
+  #count{left:50%;top:38%;transform:translate(-50%,-50%);font-weight:900;font-size:120px;font-style:italic;text-shadow:0 6px 28px rgba(0,0,0,.65)}
+  #count.tick{animation:tick .9s ease-out}
+  @keyframes tick{0%{transform:translate(-50%,-50%) scale(1.8);opacity:0}25%{opacity:1}100%{transform:translate(-50%,-50%) scale(.9);opacity:.9}}
+  #intro{left:50%;top:15%;transform:translateX(-50%);text-align:center;text-shadow:0 2px 14px rgba(0,0,0,.75);width:90vw}
+  #intro .n{font-size:13px;letter-spacing:.3em;opacity:.8}
+  #intro .t{font-size:34px;font-weight:900;font-style:italic;letter-spacing:.03em}
+  #intro .w{font-size:15px;opacity:.9;margin-top:4px}
+  #intro .c{font-size:12px;opacity:.7;margin-top:8px;letter-spacing:.12em;text-transform:uppercase}
+  #vig{inset:0;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(40,200,255,.5) 100%);transition:opacity .15s}
+  #flash{inset:0;opacity:0;background:#fff;transition:opacity .12s}
+  #pause{right:calc(12px + env(safe-area-inset-right));top:calc(68px + env(safe-area-inset-top));pointer-events:auto;width:38px;height:38px;border-radius:50%;background:var(--glass);border:1px solid var(--line);font-size:15px}
+
+  /* ---------- screens ---------- */
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;
+    background:linear-gradient(180deg,rgba(5,8,22,.15),rgba(5,8,22,.72));overflow:auto}
+  #menu .logo{font-size:clamp(44px,12vw,92px);font-weight:900;font-style:italic;letter-spacing:.02em;line-height:.95;
+    background:linear-gradient(180deg,#fff 20%,#ffd08a 60%,#ff8a3d);-webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 6px 22px rgba(0,0,0,.55))}
+  #menu .sub{margin:10px 0 28px;font-size:14px;letter-spacing:.35em;text-transform:uppercase;opacity:.9;text-shadow:0 2px 10px #000}
+  .btn{display:block;min-width:min(78vw,300px);padding:16px 26px;border-radius:16px;margin:8px auto;font-weight:900;font-size:20px;letter-spacing:.08em;font-style:italic;
+    background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(6px);text-transform:uppercase}
+  .btn.primary{background:linear-gradient(180deg,#ffd45c,#ff8a1f);color:#2a1200;border:0;font-size:26px;padding:18px 26px;box-shadow:0 8px 28px rgba(255,138,31,.5)}
+  .btn:active{transform:scale(.97)}
+  .row{display:flex;gap:10px;justify-content:center}
+  .row .btn{min-width:0;flex:1;font-size:15px;padding:13px 14px}
+  #menu .best{margin-top:14px;font-size:13px;opacity:.85;text-shadow:0 1px 8px #000}
+
+  #levels h2,#result h2{margin:0 0 6px;font-size:28px;font-style:italic;letter-spacing:.06em}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;width:min(94vw,780px);margin:14px 0}
+  .card{position:relative;height:118px;border-radius:16px;overflow:hidden;text-align:left;padding:12px;border:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end}
+  .card .n{position:absolute;left:12px;top:8px;font-size:34px;font-weight:900;font-style:italic;opacity:.9;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+  .card .t{font-weight:800;font-size:15px;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+  .card .s{font-size:11px;opacity:.85;text-shadow:0 1px 6px rgba(0,0,0,.8)}
+  .card .st{position:absolute;right:10px;top:10px;font-size:14px;letter-spacing:2px;text-shadow:0 1px 6px #000}
+  .card.locked{filter:grayscale(.9) brightness(.55)}
+  .card.locked::after{content:"🔒";position:absolute;right:10px;top:8px;font-size:20px}
+  #result .big{font-size:clamp(46px,14vw,84px);font-weight:900;font-style:italic;line-height:1;text-shadow:0 6px 24px rgba(0,0,0,.6)}
+  #result .stars{font-size:46px;letter-spacing:6px;margin:8px 0}
+  #result .stat{font-size:16px;opacity:.92;margin:2px 0}
+  #result .msg{margin:10px 0 14px;font-size:14px;opacity:.85}
+  #loading{background:#0a1030;z-index:9}
+  #loading .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:#ffb347;animation:sp 1s linear infinite;margin-bottom:14px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (max-height:520px){
+    #menu .logo{font-size:clamp(34px,11vh,60px)} #menu .sub{margin:4px 0 12px;font-size:11px}
+    .btn{padding:10px 20px;font-size:16px;margin:5px auto} .btn.primary{font-size:20px;padding:12px 22px}
+    #pos{font-size:34px} #mini{top:56px;width:84px;height:84px} #speed b{font-size:34px} #time{font-size:20px}
+    #count{font-size:84px} #intro .t{font-size:24px} #intro .w{font-size:13px} #boost{width:78px;height:78px}
+    #grid{grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0} .card{height:88px;padding:8px} .card .n{font-size:24px;top:4px}
+    #levels h2,#result h2{font-size:20px} #result .big{font-size:48px} #result .stars{font-size:30px;margin:2px 0}
+  }
+  @media (max-width:560px){
+    #lvlname{display:none} #nitroWrap{left:14px;transform:none;width:calc(100% - 140px)} #hintL{display:none} #hintR{display:none}
+    #time{font-size:22px}
+  }
+  #err{position:fixed;left:8px;right:8px;bottom:8px;background:#400;color:#fff;font:12px monospace;padding:8px;border-radius:8px;z-index:99;white-space:pre-wrap}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<script>
-const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let W, H;
-function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
-addEventListener('resize', resize); resize();
 
-let state = 'menu', jet, rocks, stars, clouds, score, best = +(localStorage.getItem('skybest') || 0), speed, t;
-let targetX = null; const keys = {};
+<div id="hud" class="hidden">
+  <div id="pos"><b>6</b><span>/6</span></div>
+  <canvas id="mini" width="208" height="208"></canvas>
+  <div id="topc"><div id="lvlname"></div><div id="time">0:00.0</div></div>
+  <div id="speed"><b>0</b><span>KM/H</span></div>
+  <button id="pause" aria-label="pause">❚❚</button>
+  <div id="nitroWrap"><div id="nitroLbl">NITRO</div><div id="nitro"><div id="nitroFill"></div></div></div>
+  <div id="hintL">◀</div><div id="hintR">▶</div>
+  <button id="boost">BOOST</button>
+  <div id="toast"></div>
+  <div id="count"></div>
+  <div id="intro"></div>
+  <div id="vig"></div>
+  <div id="flash"></div>
+</div>
 
-function reset(){
-  jet = { x: W/2, y: H*0.8, w: 34, h: 52 };
-  rocks = []; score = 0; speed = 4; t = 0;
-  stars = Array.from({length: 60}, () => ({x: Math.random()*W, y: Math.random()*H, s: Math.random()*2+0.5}));
-  clouds = Array.from({length: 6}, () => ({x: Math.random()*W, y: Math.random()*H, r: 30+Math.random()*50}));
-  targetX = null;
-}
+<div id="menu" class="screen">
+  <div class="logo">SKY<br>RACING</div>
+  <div class="sub">8 tracks · above the clouds</div>
+  <button class="btn primary" id="playBtn">▶ Play</button>
+  <div class="row" style="width:min(78vw,300px)">
+    <button class="btn" id="levelsBtn">Levels</button>
+    <button class="btn" id="soundBtn">Sound: On</button>
+  </div>
+  <div class="best" id="menuBest"></div>
+</div>
 
-addEventListener('keydown', e => { keys[e.key] = true; if (state !== 'play') start(); });
-addEventListener('keyup', e => keys[e.key] = false);
-function pointer(e){ const p = e.touches ? e.touches[0] : e; targetX = p.clientX; }
-cv.addEventListener('touchstart', e => { pointer(e); if (state !== 'play') start(); e.preventDefault(); }, {passive:false});
-cv.addEventListener('touchmove', e => { pointer(e); e.preventDefault(); }, {passive:false});
-cv.addEventListener('mousedown', e => { pointer(e); if (state !== 'play') start(); });
-cv.addEventListener('mousemove', e => { if (e.buttons) pointer(e); });
+<div id="levels" class="screen hidden">
+  <h2>SELECT TRACK</h2>
+  <div id="grid"></div>
+  <button class="btn" id="levelsBack">Back</button>
+</div>
 
-function start(){ reset(); state = 'play'; }
+<div id="result" class="screen hidden">
+  <div class="big" id="resPlace">1st</div>
+  <div class="stars" id="resStars">★★★</div>
+  <div class="stat" id="resTime"></div>
+  <div class="stat" id="resBest"></div>
+  <div class="msg" id="resMsg"></div>
+  <button class="btn primary" id="nextBtn">Next level ▶</button>
+  <div class="row" style="width:min(78vw,300px)">
+    <button class="btn" id="retryBtn">Retry</button>
+    <button class="btn" id="resLevelsBtn">Levels</button>
+  </div>
+</div>
 
-function update(){
-  t++;
-  if (keys.ArrowLeft || keys.a) jet.x -= 8;
-  if (keys.ArrowRight || keys.d) jet.x += 8;
-  if (targetX !== null) jet.x += (targetX - jet.x) * 0.2;
-  jet.x = Math.max(jet.w/2, Math.min(W - jet.w/2, jet.x));
+<div id="pauseScr" class="screen hidden">
+  <h2 style="font-size:34px;font-style:italic;margin:0 0 10px">PAUSED</h2>
+  <button class="btn primary" id="resumeBtn">Resume</button>
+  <button class="btn" id="pRetryBtn">Restart</button>
+  <button class="btn" id="pMenuBtn">Menu</button>
+</div>
 
-  speed = 4 + score / 400;
-  if (t % Math.max(12, 40 - Math.floor(score/150)) === 0) {
-    const r = 18 + Math.random()*26;
-    rocks.push({x: r + Math.random()*(W-2*r), y: -r, r, rot: 0});
-  }
-  rocks.forEach(o => { o.y += speed; o.rot += 0.03; });
-  rocks = rocks.filter(o => o.y < H + 60);
-  stars.forEach(s => { s.y += s.s * speed * 0.5; if (s.y > H) { s.y = 0; s.x = Math.random()*W; } });
-  clouds.forEach(c => { c.y += speed * 0.8; if (c.y > H + 80) { c.y = -80; c.x = Math.random()*W; } });
-  score += 1;
+<div id="loading" class="screen hidden"><div class="spin"></div><div id="loadTxt">Loading…</div></div>
 
-  for (const o of rocks) {
-    const dx = o.x - jet.x, dy = o.y - jet.y;
-    if (Math.hypot(dx, dy*0.7) < o.r + jet.w*0.35) { gameOver(); break; }
-  }
-}
-
-function gameOver(){
-  state = 'over';
-  if (score > best) { best = score; try { localStorage.setItem('skybest', best); } catch(e){} }
-}
-
-function drawJet(){
-  ctx.save(); ctx.translate(jet.x, jet.y);
-  ctx.fillStyle = '#ff8a3d';
-  ctx.beginPath(); ctx.moveTo(-6, 26); ctx.lineTo(0, 26 + 10 + Math.random()*14); ctx.lineTo(6, 26); ctx.fill();
-  ctx.fillStyle = '#e8eef8';
-  ctx.beginPath(); ctx.moveTo(0,-26); ctx.lineTo(8,10); ctx.lineTo(24,24); ctx.lineTo(6,22); ctx.lineTo(0,26);
-  ctx.lineTo(-6,22); ctx.lineTo(-24,24); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.ellipse(0,-6,4,9,0,0,7); ctx.fill();
-  ctx.restore();
-}
-
-function draw(){
-  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0b1530'); g.addColorStop(1,'#1f4e8c');
-  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-  ctx.fillStyle = '#fff';
-  stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  clouds.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.arc(c.x+c.r*0.8, c.y+8, c.r*0.7, 0, 7); ctx.fill(); });
-
-  rocks.forEach(o => {
-    ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
-    ctx.fillStyle = '#7b6a5a'; ctx.beginPath();
-    for (let i = 0; i < 8; i++) { const a = i/8*Math.PI*2, r = o.r*(0.8 + 0.2*((i*7)%3)/2); ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); }
-    ctx.closePath(); ctx.fill(); ctx.restore();
-  });
-  if (state !== 'menu') drawJet();
-
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
-  ctx.font = 'bold 20px system-ui'; ctx.fillText('Score ' + score + '   Best ' + best, W/2, 34);
-  if (state !== 'play') {
-    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, H/2-90, W, 180);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px system-ui';
-    ctx.fillText(state === 'menu' ? 'Sky Racing 🏎️' : 'Crashed!', W/2, H/2-25);
-    ctx.font = '20px system-ui';
-    ctx.fillText(state === 'menu' ? 'Drag your finger to steer. Dodge the rocks.' : 'Score ' + score, W/2, H/2+15);
-    ctx.fillText('Tap to ' + (state === 'menu' ? 'start' : 'play again'), W/2, H/2+50);
-  }
-}
-
-reset();
-(function loop(){ if (state === 'play') update(); draw(); requestAnimationFrame(loop); })();
-</script>
+<script src="three.min.js"></script>
+<script src="levels.js"></script>
+<script src="track.js"></script>
+<script src="world.js"></script>
+<script src="cars.js"></script>
+<script src="game.js"></script>
 </body>
 </html>
