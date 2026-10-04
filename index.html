@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Sky Racing 🏎️</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1530;overflow:hidden;touch-action:none;font-family:system-ui,sans-serif}
+  canvas{display:block;width:100%;height:100%}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H;
+function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+let state = 'menu', jet, rocks, stars, clouds, score, best = +(localStorage.getItem('skybest') || 0), speed, t;
+let targetX = null; const keys = {};
+
+function reset(){
+  jet = { x: W/2, y: H*0.8, w: 34, h: 52 };
+  rocks = []; score = 0; speed = 4; t = 0;
+  stars = Array.from({length: 60}, () => ({x: Math.random()*W, y: Math.random()*H, s: Math.random()*2+0.5}));
+  clouds = Array.from({length: 6}, () => ({x: Math.random()*W, y: Math.random()*H, r: 30+Math.random()*50}));
+  targetX = null;
+}
+
+addEventListener('keydown', e => { keys[e.key] = true; if (state !== 'play') start(); });
+addEventListener('keyup', e => keys[e.key] = false);
+function pointer(e){ const p = e.touches ? e.touches[0] : e; targetX = p.clientX; }
+cv.addEventListener('touchstart', e => { pointer(e); if (state !== 'play') start(); e.preventDefault(); }, {passive:false});
+cv.addEventListener('touchmove', e => { pointer(e); e.preventDefault(); }, {passive:false});
+cv.addEventListener('mousedown', e => { pointer(e); if (state !== 'play') start(); });
+cv.addEventListener('mousemove', e => { if (e.buttons) pointer(e); });
+
+function start(){ reset(); state = 'play'; }
+
+function update(){
+  t++;
+  if (keys.ArrowLeft || keys.a) jet.x -= 8;
+  if (keys.ArrowRight || keys.d) jet.x += 8;
+  if (targetX !== null) jet.x += (targetX - jet.x) * 0.2;
+  jet.x = Math.max(jet.w/2, Math.min(W - jet.w/2, jet.x));
+
+  speed = 4 + score / 400;
+  if (t % Math.max(12, 40 - Math.floor(score/150)) === 0) {
+    const r = 18 + Math.random()*26;
+    rocks.push({x: r + Math.random()*(W-2*r), y: -r, r, rot: 0});
+  }
+  rocks.forEach(o => { o.y += speed; o.rot += 0.03; });
+  rocks = rocks.filter(o => o.y < H + 60);
+  stars.forEach(s => { s.y += s.s * speed * 0.5; if (s.y > H) { s.y = 0; s.x = Math.random()*W; } });
+  clouds.forEach(c => { c.y += speed * 0.8; if (c.y > H + 80) { c.y = -80; c.x = Math.random()*W; } });
+  score += 1;
+
+  for (const o of rocks) {
+    const dx = o.x - jet.x, dy = o.y - jet.y;
+    if (Math.hypot(dx, dy*0.7) < o.r + jet.w*0.35) { gameOver(); break; }
+  }
+}
+
+function gameOver(){
+  state = 'over';
+  if (score > best) { best = score; try { localStorage.setItem('skybest', best); } catch(e){} }
+}
+
+function drawJet(){
+  ctx.save(); ctx.translate(jet.x, jet.y);
+  ctx.fillStyle = '#ff8a3d';
+  ctx.beginPath(); ctx.moveTo(-6, 26); ctx.lineTo(0, 26 + 10 + Math.random()*14); ctx.lineTo(6, 26); ctx.fill();
+  ctx.fillStyle = '#e8eef8';
+  ctx.beginPath(); ctx.moveTo(0,-26); ctx.lineTo(8,10); ctx.lineTo(24,24); ctx.lineTo(6,22); ctx.lineTo(0,26);
+  ctx.lineTo(-6,22); ctx.lineTo(-24,24); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.ellipse(0,-6,4,9,0,0,7); ctx.fill();
+  ctx.restore();
+}
+
+function draw(){
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0b1530'); g.addColorStop(1,'#1f4e8c');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = '#fff';
+  stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  clouds.forEach(c => { ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.arc(c.x+c.r*0.8, c.y+8, c.r*0.7, 0, 7); ctx.fill(); });
+
+  rocks.forEach(o => {
+    ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+    ctx.fillStyle = '#7b6a5a'; ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i/8*Math.PI*2, r = o.r*(0.8 + 0.2*((i*7)%3)/2); ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  });
+  if (state !== 'menu') drawJet();
+
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
+  ctx.font = 'bold 20px system-ui'; ctx.fillText('Score ' + score + '   Best ' + best, W/2, 34);
+  if (state !== 'play') {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, H/2-90, W, 180);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px system-ui';
+    ctx.fillText(state === 'menu' ? 'Sky Racing 🏎️' : 'Crashed!', W/2, H/2-25);
+    ctx.font = '20px system-ui';
+    ctx.fillText(state === 'menu' ? 'Drag your finger to steer. Dodge the rocks.' : 'Score ' + score, W/2, H/2+15);
+    ctx.fillText('Tap to ' + (state === 'menu' ? 'start' : 'play again'), W/2, H/2+50);
+  }
+}
+
+reset();
+(function loop(){ if (state === 'play') update(); draw(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
