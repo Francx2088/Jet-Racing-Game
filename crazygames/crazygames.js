@@ -11,7 +11,7 @@
    Outside CrazyGames (environment 'disabled' or no SDK) every call falls back to harmless local behaviour. */
 (function (root) {
   'use strict';
-  const KEY = 'skyracing.v2';
+  const KEY = 'skyracers.v2';
   const pauseCbs = [], resumeCbs = [], audioCbs = [];
   let sdk = null, lastSaved = null, lastScore = -1, muted = false;
 

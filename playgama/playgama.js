@@ -11,7 +11,7 @@
    Outside Playgama (no Bridge loaded) every call falls back to harmless local behaviour. */
 (function (root) {
   'use strict';
-  const KEY = 'skyracing.v2';
+  const KEY = 'skyracers.v2';
   const pauseCbs = [], resumeCbs = [], audioCbs = [];
   let pg = null, lastSaved = null, lastScore = -1, audioOn = true;
   let platformPaused = false, hidden = false, frozen = false;

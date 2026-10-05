@@ -7,7 +7,7 @@
   'use strict';
   const yt = root.ytgame;
   const IN_ENV = !!(yt && yt.IN_PLAYABLES_ENV);
-  const KEY = 'skyracing.v2';
+  const KEY = 'skyracers.v2';
   let firstFrameSent = false, readySent = false, lastSaved = null, lastScore = -1;
   const pauseCbs = [], resumeCbs = [], audioCbs = [];
 

@@ -12,4 +12,4 @@ Same game as the YouTube Playables build in the repository root. The only differ
   - `pause_state_changed` / `visibility_state_changed` freeze the game and its audio
   - respects `platform.isAudioEnabled` and `audio_state_changed`
 
-Build the upload zip: `./build.sh` → `dist/sky-racing-playgama.zip`
+Build the upload zip: `./build.sh` → `dist/sky-racers-playgama.zip`
