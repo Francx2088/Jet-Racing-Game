@@ -1,4 +1,4 @@
-/* Sky Racers - game logic, input, HUD, audio. */
+/* Crazy Racers - game logic, input, HUD, audio. */
 (function () {
   'use strict';
   const T = THREE;

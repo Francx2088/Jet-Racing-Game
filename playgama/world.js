@@ -1,4 +1,4 @@
-/* Sky Racers - world builder: sky, road mesh, scenery, weather, pickups. */
+/* Crazy Racers - world builder: sky, road mesh, scenery, weather, pickups. */
 (function (root) {
   'use strict';
   const T = THREE;
@@ -743,7 +743,7 @@
     }
 
     // ----- trackside: sponsor gantries over the road and billboards beside it -----
-    const SPONSORS = ['SKY RACERS', 'NITRO+', 'AERO OIL', 'TURBO X', 'CLOUD 9', 'APEX', 'VELOCITY', 'JETSTREAM'];
+    const SPONSORS = ['CRAZY RACERS', 'NITRO+', 'AERO OIL', 'TURBO X', 'CLOUD 9', 'APEX', 'VELOCITY', 'JETSTREAM'];
     const bannerTex = (txt, bg, fg, w2, h2) => canvasTex(w2 || 512, h2 || 96, (c, ww, hh) => {
       c.fillStyle = bg; c.fillRect(0, 0, ww, hh);
       c.fillStyle = fg; c.fillRect(0, 0, ww, hh * 0.08); c.fillRect(0, hh * 0.92, ww, hh * 0.08);
@@ -800,7 +800,7 @@
       }
     };
     const addBlimps = count => {
-      const skin = canvasTex(256, 64, (c, ww, hh) => { c.fillStyle = '#e9edf5'; c.fillRect(0, 0, ww, hh); c.fillStyle = th.rail; c.fillRect(0, hh * 0.62, ww, hh * 0.14); c.fillStyle = '#16192a'; c.font = 'italic 900 26px "Saira Condensed",Impact,sans-serif'; c.textAlign = 'center'; c.fillText('SKY RACERS', ww / 2, hh * 0.5); });
+      const skin = canvasTex(256, 64, (c, ww, hh) => { c.fillStyle = '#e9edf5'; c.fillRect(0, 0, ww, hh); c.fillStyle = th.rail; c.fillRect(0, hh * 0.62, ww, hh * 0.14); c.fillStyle = '#16192a'; c.font = 'italic 900 26px "Saira Condensed",Impact,sans-serif'; c.textAlign = 'center'; c.fillText('CRAZY RACERS', ww / 2, hh * 0.5); });
       for (let k = 0; k < count; k++) {
         const p = spot(120, 360, 40, 150, 50); if (!p) continue;
         const gb = new T.Group();

@@ -1,4 +1,4 @@
-/* Sky Racers - CrazyGames bridge (HTML5 SDK v3).
+/* Crazy Racers - CrazyGames bridge (HTML5 SDK v3).
    Drop-in replacement for the YouTube Playables bridge: it exposes the same window.SkyPlayables
    interface the game already calls, so game.js is identical in both builds.
      boot           -> SDK.init(), game.loadingStart()
@@ -11,7 +11,7 @@
    Outside CrazyGames (environment 'disabled' or no SDK) every call falls back to harmless local behaviour. */
 (function (root) {
   'use strict';
-  const KEY = 'skyracers.v2';
+  const KEY = 'crazyracers.v2';
   const pauseCbs = [], resumeCbs = [], audioCbs = [];
   let sdk = null, lastSaved = null, lastScore = -1, muted = false;
 

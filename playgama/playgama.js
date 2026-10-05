@@ -1,4 +1,4 @@
-/* Sky Racers - Playgama Bridge adapter.
+/* Crazy Racers - Playgama Bridge adapter.
    Drop-in replacement for the YouTube Playables bridge: it exposes the same window.SkyPlayables
    interface the game already calls, so game.js is identical in every build.
      boot           -> bridge.initialize()
@@ -11,7 +11,7 @@
    Outside Playgama (no Bridge loaded) every call falls back to harmless local behaviour. */
 (function (root) {
   'use strict';
-  const KEY = 'skyracers.v2';
+  const KEY = 'crazyracers.v2';
   const pauseCbs = [], resumeCbs = [], audioCbs = [];
   let pg = null, lastSaved = null, lastScore = -1, audioOn = true;
   let platformPaused = false, hidden = false, frozen = false;

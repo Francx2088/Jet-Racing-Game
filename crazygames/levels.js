@@ -1,4 +1,4 @@
-/* Sky Racers - the 8 levels (data only). */
+/* Crazy Racers - the 8 levels (data only). */
 (function (root) {
   'use strict';
   const S = len => ({ len });

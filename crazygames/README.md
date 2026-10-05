@@ -1,4 +1,4 @@
-# Sky Racers 🏎️ — CrazyGames build
+# Crazy Racers 🏎️ — CrazyGames build
 
 Same game as the YouTube Playables build in the repository root. The only differences:
 
@@ -11,4 +11,4 @@ Same game as the YouTube Playables build in the repository root. The only differ
   - `game.happytime()` when the career star total improves
   - respects `game.settings.muteAudio`
 
-Build the upload zip: `./build.sh` → `dist/sky-racers-crazygames.zip`
+Build the upload zip: `./build.sh` → `dist/crazy-racers-crazygames.zip`
