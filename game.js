@@ -206,7 +206,7 @@
     if (isRight(e.key)) input.kr = true;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') togglePause();
-    if (e.key === 'Enter' && state.mode === 'menu' && !$('menu').classList.contains('hidden')) startLevel(0);
+    if (e.key === 'Enter' && state.mode === 'menu' && !$('menu').classList.contains('hidden') && !$('playBtn').disabled) $('playBtn').click();
   });
   window.addEventListener('keyup', e => {
     if (isLeft(e.key)) input.kl = false;
@@ -694,15 +694,15 @@
   }
   function startMenuDemo() {
     state.mode = 'menu'; state.demo = true; cam.init = false;
-    loadWorld(0);
+    loadWorld(Math.min(save.reached || 1, NL) - 1);
     spawnRace(true);
     state.leadS = state.world.track.startS + 120; state.time = 0;
     show('hud', false); show('menu', true); show('levels', false); show('result', false); show('pauseScr', false);
     const reached = Math.min(save.reached || 1, NL), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
     $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.allDone || i + 1 < reached ? 'done' : i + 1 === reached ? 'now' : '') + '"></i>').join('');
-    $('menuBest').textContent = save.allDone ? 'Career complete · ' + stars + ' / ' + NL * 3 + ' ★ · Tracks is open: pick any track.'
-      : reached > 1 ? 'Every race starts at Track 1 · your best run reached Track ' + reached + '.' : 'Start at Track 1, finish top 3 to go on. Reach Track ' + NL + ' to open Tracks.';
-    setBtn('playBtn', 'Play');
+    $('menuBest').textContent = save.allDone ? 'All ' + NL + ' tracks unlocked · ' + stars + ' / ' + NL * 3 + ' ★ · pick any track.'
+      : reached > 1 ? 'Progress saved · continue at Track ' + reached + ' of ' + NL + '. Finish top 3 to unlock the next one.' : 'Finish top 3 to unlock the next track. Clear all ' + NL + ' to pick tracks freely.';
+    setBtn('playBtn', save.allDone ? 'Choose track' : reached > 1 ? 'Continue · Track ' + reached : 'Play');
   }
   function setBtn(id, txt) { $(id).querySelector('span').textContent = txt; }
 
@@ -833,27 +833,30 @@
   function autopilotInput(c) { c.lane0 = 0; c.laneAmp = 0; c.react = 90; }
 
   /* ---------------- UI wiring ---------------- */
-  // career: tracks unlock one after another and only the next one can be raced, until all 8 are cleared
+  // career: tracks unlock one after another and only the next one can be raced, until all of them are unlocked
   function buildLevelGrid() {
     const g = $('grid'); g.innerHTML = '';
-    $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Track 1 is always open · reach Track ' + NL + ' in a run to unlock the rest';
+    const cur = Math.min(save.reached || 1, NL);
+    $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Career · race Track ' + cur + ' next · unlock all ' + NL + ' to pick freely';
     LEVELS.forEach((L, i) => {
-      const open = save.allDone || i === 0;
+      const open = save.allDone || i + 1 === cur;
       const c = document.createElement('button');
-      c.className = 'card' + (open ? (save.allDone ? '' : ' next') : ' locked');
+      const cleared = !save.allDone && i + 1 < cur;
+      c.className = 'card' + (open ? (save.allDone ? '' : ' next') : cleared ? ' cleared' : ' locked');
       const s = L.theme.sky; c.style.background = 'linear-gradient(180deg,' + s.top + ',' + s.mid + ' 60%,' + s.hor + ')';
       const b = save.best[L.id], stars = b ? b.stars : 0;
-      const chip = open ? (b ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : (save.allDone ? '' : '<span class="chip next">START</span>')) : '<span class="chip">🔒</span>';
+      const chip = !save.allDone && open ? '<span class="chip next">NEXT</span>' : (open || cleared) ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : '<span class="chip">🔒</span>';
       c.innerHTML = '<div class="n">' + L.id + '</div>' + chip + '<div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
       if (!open) c.setAttribute('aria-disabled', 'true');
       c.addEventListener('click', () => {
         if (open) startLevel(i);
-        else $('gridNote').textContent = 'Locked · play from Track 1 and reach Track ' + NL + ' to pick tracks freely.';
+        else $('gridNote').textContent = i + 1 < cur ? 'Cleared! Unlock all ' + NL + ' tracks to replay any of them.' : 'Locked · finish Track ' + cur + ' in the top 3 first.';
       });
       g.appendChild(c);
     });
   }
-  $('playBtn').addEventListener('click', () => startLevel(0));
+  // saved progress: carry on at the next track; once every track is unlocked, pick freely
+  $('playBtn').addEventListener('click', () => { if (save.allDone) { buildLevelGrid(); show('menu', false); show('levels', true); } else startLevel(Math.min(save.reached || 1, NL) - 1); });
   $('levelsBtn').addEventListener('click', () => { buildLevelGrid(); show('menu', false); show('levels', true); });
   $('levelsBack').addEventListener('click', () => { if (state.mode !== 'menu') { startMenuDemo(); return; } show('levels', false); show('menu', true); });
   $('soundBtn').addEventListener('click', () => { audio.init(); audio.setMute(save.sound); setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off'); });
