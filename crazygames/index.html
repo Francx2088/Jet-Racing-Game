@@ -106,7 +106,7 @@
   .btn:disabled{opacity:.55}
   .row{display:flex;gap:10px;justify-content:center;width:min(76vw,300px)}
   .row .btn{min-width:0;flex:1;font-size:16px;padding:0 10px;height:48px}
-  .pips{display:flex;gap:6px;margin-top:10px}
+  .pips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px;max-width:min(90vw,330px)}
   .pips i{width:22px;height:7px;transform:skewX(-30deg);background:rgba(255,255,255,.18)}
   .pips i.done{background:var(--accent)} .pips i.now{background:var(--nitro)}
   .note{font-size:12px;color:var(--dim);letter-spacing:.06em;max-width:36ch;text-wrap:balance}
@@ -172,7 +172,7 @@
   <div class="eyebrow">Above the clouds</div>
   <div class="logo">SKY<em>RACING</em></div>
   <div class="stripe"></div>
-  <div class="sub">10 tracks · 5 rivals · boost pads</div>
+  <div class="sub">20 tracks · 5 rivals · boost pads</div>
   <button class="btn primary" id="playBtn"><span>Play</span></button>
   <div class="row">
     <button class="btn" id="levelsBtn"><span>Tracks</span></button>
