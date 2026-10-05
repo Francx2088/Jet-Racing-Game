@@ -144,6 +144,15 @@
       if (style === 'metal') { g.strokeStyle = 'rgba(125,249,255,0.18)'; g.lineWidth = 2; for (let y = 0; y < h; y += 128) { g.strokeRect(14, y + 2, w - 28, 124); } g.fillStyle = 'rgba(255,255,255,.18)'; for (let y = 0; y < h; y += 128) for (const x of [24, w - 24]) { g.beginPath(); g.arc(x, y + 14, 3, 0, 7); g.fill(); } }
       if (style === 'neon') { g.strokeStyle = 'rgba(255,47,208,0.22)'; g.lineWidth = 1.5; for (let y = 0; y < h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } for (let x = 32; x < w; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } }
       if (style === 'basalt') { g.strokeStyle = 'rgba(255,90,20,0.55)'; g.lineWidth = 1.6; g.shadowColor = '#ff4a10'; g.shadowBlur = 6; for (let i = 0; i < 16; i++) { let x = rnd() * w, y = rnd() * h; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (rnd() - 0.5) * 50; y += 10 + rnd() * 40; g.lineTo(x, y); } g.stroke(); } g.shadowBlur = 0; }
+      if (style === 'coral') { for (let i = 0; i < 90; i++) { g.fillStyle = 'rgba(' + (rnd() < 0.5 ? '255,240,200,' : '40,200,190,') + (0.04 + rnd() * 0.07) + ')'; g.beginPath(); g.ellipse(rnd() * w, rnd() * h, 6 + rnd() * 22, 3 + rnd() * 8, rnd() * 3, 0, 7); g.fill(); } }
+      if (style === 'stone') { g.strokeStyle = 'rgba(70,40,20,0.35)'; g.lineWidth = 2; for (let y = 0; y < h; y += 48) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); for (let x = (y / 48) % 2 ? 0 : 40; x < w; x += 80) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 48); g.stroke(); } } }
+      if (style === 'crystal') { for (let i = 0; i < 160; i++) { g.fillStyle = 'rgba(' + (rnd() < 0.5 ? '200,150,255,' : '150,240,255,') + (0.15 + rnd() * 0.4) + ')'; const x = rnd() * w, y = rnd() * h, k = 1 + rnd() * 3; g.beginPath(); g.moveTo(x, y - k * 2); g.lineTo(x + k, y); g.lineTo(x, y + k * 2); g.lineTo(x - k, y); g.fill(); } }
+      if (style === 'wood') { for (let y = 0; y < h; y += 32) { g.fillStyle = 'rgba(' + (90 + rnd() * 40 | 0) + ',' + (50 + rnd() * 25 | 0) + ',30,0.55)'; g.fillRect(0, y, w, 30); g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, y + 30, w, 2); } }
+      if (style === 'grid') { g.strokeStyle = 'rgba(61,255,160,0.45)'; g.lineWidth = 1.5; g.shadowColor = '#3dffa0'; g.shadowBlur = 6; for (let y = 0; y < h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } for (let x = 16; x < w; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } g.shadowBlur = 0; }
+      if (style === 'gold') { for (let i = 0; i < 900; i++) { g.fillStyle = 'rgba(255,' + (190 + rnd() * 60 | 0) + ',80,' + (0.1 + rnd() * 0.35) + ')'; g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2); } }
+      if (style === 'obsidian') { g.strokeStyle = 'rgba(255,60,120,0.5)'; g.lineWidth = 1.4; g.shadowColor = '#ff3a7a'; g.shadowBlur = 6; for (let i = 0; i < 12; i++) { let x = rnd() * w, y = rnd() * h; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (rnd() - 0.5) * 60; y += 10 + rnd() * 50; g.lineTo(x, y); } g.stroke(); } g.shadowBlur = 0; }
+      if (style === 'chrome') { for (let x = 20; x < w - 20; x += 8) { g.fillStyle = 'rgba(255,255,255,' + (0.03 + rnd() * 0.06) + ')'; g.fillRect(x, 0, 3, h); } }
+      if (style === 'void') { for (let i = 0; i < 260; i++) { g.fillStyle = 'rgba(255,255,255,' + (0.2 + rnd() * 0.6) + ')'; g.fillRect(rnd() * w, rnd() * h, 1, 1); } }
       // lane markings
       g.fillStyle = r.line;
       g.globalAlpha = 0.28; g.fillRect(63, 0, 2, h); g.fillRect(191, 0, 2, h);
@@ -234,7 +243,7 @@
     }
     const rtex = roadTexture(th.road.style, th);
     const style = th.road.style;
-    const roadMat = new T.MeshStandardMaterial({ map: rtex, roughness: style === 'ice' ? 0.18 : style === 'wet' ? 0.25 : 0.62, metalness: style === 'metal' ? 0.5 : 0.12, envMap: world.env, envMapIntensity: style === 'ice' || style === 'wet' ? 0.9 : 0.35, side: T.DoubleSide });
+    const roadMat = new T.MeshStandardMaterial({ map: rtex, roughness: style === 'ice' ? 0.18 : style === 'wet' ? 0.25 : (style === 'chrome' || style === 'obsidian' || style === 'crystal') ? 0.3 : 0.62, metalness: style === 'metal' || style === 'chrome' ? 0.5 : style === 'gold' ? 0.35 : 0.12, envMap: world.env, envMapIntensity: style === 'ice' || style === 'wet' ? 0.9 : 0.35, side: T.DoubleSide });
     const roadTop = new T.Mesh(ribbon(track, [[-w / 2, 0, 0], [w / 2, 0, 1]], runs, 32), roadMat);
     const body = new T.Mesh(ribbon(track, [[-w / 2, 0], [-w / 2 - 0.4, -0.7], [-w * 0.28, -1.9], [w * 0.28, -1.9], [w / 2 + 0.4, -0.7], [w / 2, 0]], runs, 16),
       new T.MeshStandardMaterial({ color: lin('#1b1d26'), roughness: 0.55, metalness: 0.6, envMap: world.env, side: T.DoubleSide }));
@@ -501,6 +510,224 @@
       for (let k = 0; k < 14; k++) { const p = spot(120, 500, -300, -150, 40); if (!p) continue; const c = new T.Mesh(new T.CylinderGeometry(7, 13, 520, 10, 1, true), new T.MeshBasicMaterial({ color: lin('#ff6a20'), transparent: true, opacity: 0.2, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide })); c.position.copy(p).y += 120; group.add(c); }
     }
 
+    // ----- worlds for tracks 11-20 -----
+    const anims = []; world.anims = anims;
+    const basic = (hex, o) => new T.MeshBasicMaterial(Object.assign({ color: lin(hex) }, o || {}));
+    const glow = (hex, op) => basic(hex, { transparent: true, opacity: op === undefined ? 0.8 : op, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
+    const std = (hex, o) => new T.MeshStandardMaterial(Object.assign({ color: lin(hex), roughness: 0.7, metalness: 0.1, envMap: world.env, envMapIntensity: 0.5 }, o || {}));
+    const trackSpots = (every, test) => { const out = []; for (let i = 160; i < n - 120; i += every) { let ok = true; for (let d = -10; d <= 10; d += 2) { const j = i + d; if (gap[j] || U[j * 3 + 1] < 0.85) { ok = false; break; } } for (const o of feats.obst) if (Math.abs(o.i - i) < 24) ok = false; if (ok && (!test || test(i))) out.push(i); } return out; };
+
+    if (kind === 'tropical') {
+      // open ocean far below, sandy islets with palm trees and lighthouses
+      const wave = canvasTex(256, 256, (g, ww, hh) => {
+        const gr = g.createLinearGradient(0, 0, ww, hh); gr.addColorStop(0, '#0fb5c4'); gr.addColorStop(1, '#1a8fd0'); g.fillStyle = gr; g.fillRect(0, 0, ww, hh);
+        const r = TK.mulberry(17); for (let i = 0; i < 120; i++) { g.strokeStyle = 'rgba(255,255,255,' + (0.08 + r() * 0.25) + ')'; g.lineWidth = 1 + r() * 2; g.beginPath(); const x = r() * ww, y = r() * hh; g.moveTo(x, y); g.quadraticCurveTo(x + 10, y - 4, x + 20 + r() * 20, y); g.stroke(); }
+      }, true);
+      wave.repeat.set(40, 40); anims.push(t => { wave.offset.set(t * 0.004, t * 0.002); });
+      const ocean = new T.Mesh(new T.PlaneGeometry(14000, 14000).rotateX(-Math.PI / 2), new T.MeshStandardMaterial({ map: wave, roughness: 0.25, metalness: 0.3, envMap: world.env, envMapIntensity: 1.2 }));
+      ocean.position.set(ctr.x, mn.y - 120, ctr.z); group.add(ocean);
+      const sand = [], trunks = [], fronds = [], lights = [];
+      for (let k = 0; k < 36; k++) {
+        const s = 16 + rnd() * 26, p = spot(60, 260, -60, 20, s + 26); if (!p) continue;
+        sand.push({ pos: p.clone(), sx: s, sy: 1, sz: s * (0.7 + rnd() * 0.5), ry: rnd() * 6, color: jitterColor('#f2dca0', rnd, 0.2) });
+        const pc = 2 + Math.floor(rnd() * 4);
+        for (let q = 0; q < pc; q++) {
+          const a = rnd() * 6.28, rr = rnd() * s * 0.5, hgt = 9 + rnd() * 9, lean = (rnd() - 0.5) * 0.5;
+          const base = V3(p.x + Math.cos(a) * rr, p.y + 1, p.z + Math.sin(a) * rr);
+          trunks.push({ pos: base.clone().setY(base.y + hgt / 2), sx: 0.5, sy: hgt, sz: 0.5, rz: lean, color: jitterColor('#8a6a40', rnd, 0.3) });
+          const top = base.clone().add(V3(-Math.sin(lean) * hgt, hgt, 0));
+          for (let f = 0; f < 6; f++) fronds.push({ pos: top.clone(), sx: 0.6, sy: 0.15, sz: 7, ry: f * 1.05 + rnd(), rx: 0.45, color: jitterColor('#2fa84a', rnd, 0.4) });
+        }
+        if (rnd() < 0.18) lights.push(p.clone());
+      }
+      group.add(instanced(new T.CylinderGeometry(1, 1.15, 2, 16).translate(0, 0, 0), std('#ffffff', { roughness: 1 }), sand));
+      group.add(instanced(new T.CylinderGeometry(0.7, 1, 1, 6), std('#ffffff', { roughness: 1 }), trunks));
+      group.add(instanced(new T.BoxGeometry(1, 1, 1).translate(0, 0, 0.5), std('#ffffff', { roughness: 0.9, side: T.DoubleSide }), fronds));
+      const stripe = canvasTex(16, 64, (g, ww, hh) => { for (let y = 0; y < hh; y += 16) { g.fillStyle = (y / 16) % 2 ? '#ffffff' : '#e8322a'; g.fillRect(0, y, ww, 16); } });
+      lights.forEach(p => { const lh = new T.Mesh(new T.CylinderGeometry(2.2, 3, 30, 14), new T.MeshStandardMaterial({ map: stripe, roughness: 0.6 })); lh.position.copy(p).y += 16; group.add(lh); const lamp = new T.Mesh(new T.SphereGeometry(2.6, 12, 8), glow('#fff2b0', 0.9)); lamp.position.copy(p).y += 33; group.add(lamp); });
+    } else if (kind === 'hologram') {
+      // giant floating neon rings and maglev trains racing on rails far below
+      const ringCols = ['#2f8fff', '#7df9ff', '#ff2fd0', '#a06bff'];
+      for (let k = 0; k < 22; k++) {
+        const p = spot(80, 340, -40, 140, 60); if (!p) continue;
+        const r = 30 + rnd() * 50, ring = new T.Mesh(new T.TorusGeometry(r, 1.2 + rnd() * 1.5, 8, 64), glow(ringCols[k % 4], 0.75));
+        ring.position.copy(p); ring.rotation.set(rnd() * 3, rnd() * 3, 0); group.add(ring);
+        const sp = (rnd() - 0.5) * 0.3; anims.push(t => { ring.rotation.y += sp * 0.016; ring.rotation.x += sp * 0.008; });
+      }
+      const railY = mn.y - 90, railM = basic('#1b2a6b'), trainM = std('#d8e2ff', { metalness: 0.8, roughness: 0.2, emissive: lin('#2f8fff'), emissiveIntensity: 0.35 });
+      for (let k = 0; k < 6; k++) {
+        const z = ctr.z + (k - 2.5) * dim.z / 5, len = dim.x + 1600;
+        const rail = new T.Mesh(new T.BoxGeometry(len, 2, 6), railM); rail.position.set(ctr.x, railY - k * 25, z); group.add(rail);
+        const edge = new T.Mesh(new T.BoxGeometry(len, 0.6, 0.6), glow('#7df9ff', 0.9)); edge.position.set(ctr.x, railY - k * 25 + 1.4, z + 3); group.add(edge);
+        const train = new T.Group();
+        for (let c = 0; c < 5; c++) { mk(boxG, trainM, c * 26, 0, 0, 24, 6, 7, train); mk(boxG, glow('#7df9ff', 0.9), c * 26, 1, 3.6, 22, 1.2, 0.2, train); }
+        train.position.set(ctr.x, railY - k * 25 + 5, z); group.add(train);
+        const spd = (110 + rnd() * 80) * (k % 2 ? 1 : -1), x0 = ctr.x - len / 2;
+        anims.push(t => { train.position.x = x0 + (((t * spd) % len) + len) % len; });
+      }
+    } else if (kind === 'pyramids') {
+      // great pyramids and obelisks rising from the desert floor
+      const gy = mn.y - 360;
+      const pyrG = new T.ConeGeometry(1, 1, 4, 1).rotateY(Math.PI / 4).translate(0, 0.5, 0);
+      const stone = canvasTex(64, 64, (g, ww, hh) => { g.fillStyle = '#d9b27a'; g.fillRect(0, 0, ww, hh); g.strokeStyle = 'rgba(90,60,30,.35)'; for (let y = 0; y < hh; y += 8) { g.beginPath(); g.moveTo(0, y); g.lineTo(ww, y); g.stroke(); } }, true);
+      stone.repeat.set(12, 12);
+      const pyrs = [], obel = [];
+      for (let k = 0; k < 18; k++) { const h = 220 + rnd() * 160, p = spot(h * 0.9, h * 2.4, -10, 10, h * 1.05); if (!p) continue; const hh = Math.min(h, p.y - gy - 30); pyrs.push({ pos: V3(p.x, gy, p.z), sx: hh * 1.5, sy: hh, sz: hh * 1.5, ry: rnd() * 0.4 }); }
+      for (let k = 0; k < 24; k++) { const p = spot(60, 280, -10, 10, 30); if (!p) continue; const h = 200 + rnd() * 160; obel.push({ pos: V3(p.x, gy + h / 2, p.z), sx: 7, sy: h, sz: 7 }); }
+      group.add(instanced(pyrG, new T.MeshStandardMaterial({ map: stone, roughness: 1, flatShading: true }), pyrs));
+      group.add(instanced(new T.CylinderGeometry(0.55, 1, 1, 4, 1).rotateY(Math.PI / 4), std('#c99a5a', { flatShading: true, roughness: 1 }), obel));
+      group.add(instanced(new T.ConeGeometry(1, 1.2, 4).rotateY(Math.PI / 4), std('#ffd27a', { metalness: 0.8, roughness: 0.25, emissive: lin('#b8861a'), emissiveIntensity: 0.3 }), obel.map(o => ({ pos: V3(o.pos.x, o.pos.y + o.sy / 2 + 5, o.pos.z), sx: 5, sy: 9, sz: 5 }))));
+      const dunes = []; for (let k = 0; k < 40; k++) { dunes.push({ pos: V3(ctr.x + (rnd() - 0.5) * (dim.x + 3000), gy - 20, ctr.z + (rnd() - 0.5) * (dim.z + 3000)), sx: 200 + rnd() * 300, sy: 40 + rnd() * 50, sz: 120 + rnd() * 200, ry: rnd() * 3 }); }
+      group.add(instanced(new T.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), std('#e2b878', { roughness: 1 }), dunes));
+    } else if (kind === 'crystal') {
+      // towering glowing crystal clusters floating in the twilight
+      const prism = new T.CylinderGeometry(1, 1, 1, 6).translate(0, 0.5, 0), tip = new T.ConeGeometry(1, 1, 6).translate(0, 0.5, 0);
+      const a = [], b = [];
+      for (let k = 0; k < 40; k++) {
+        const p = spot(60, 300, -80, 80, 40); if (!p) continue;
+        const c = 3 + Math.floor(rnd() * 4);
+        for (let q = 0; q < c; q++) {
+          const r = 3 + rnd() * 7, h = 20 + rnd() * 60, tilt = (rnd() - 0.5) * 0.9, ry = rnd() * 6, col = lin(rnd() < 0.5 ? '#b47bff' : '#5fe6ff').multiplyScalar(0.8 + rnd() * 0.4);
+          a.push({ pos: p.clone(), sx: r, sy: h, sz: r, rz: tilt, ry, color: col });
+          b.push({ pos: p.clone().add(V3(-Math.sin(tilt) * h, Math.cos(tilt) * h, 0)), sx: r, sy: r * 2.4, sz: r, rz: tilt, ry, color: col });
+        }
+      }
+      const cm = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.82, emissive: lin('#5a2aa0'), emissiveIntensity: 0.6, envMap: world.env, envMapIntensity: 1.4, flatShading: true });
+      group.add(instanced(prism, cm, a)); group.add(instanced(tip, cm, b));
+      for (let k = 0; k < 14; k++) { const p = spot(40, 200, 10, 90, 20); if (!p) continue; const sh = new T.Mesh(new T.OctahedronGeometry(4 + rnd() * 5, 0), glow(rnd() < 0.5 ? '#c8a0ff' : '#7df9ff', 0.6)); sh.position.copy(p); group.add(sh); const sp = 0.3 + rnd() * 0.6, y0 = p.y; anims.push(t => { sh.rotation.y = t * sp; sh.position.y = y0 + Math.sin(t * sp + k) * 4; }); }
+    } else if (kind === 'blackhole') {
+      // a black hole with a glowing accretion disk, spinning space stations, comets
+      const bh = V3(ctr.x + 900, ctr.y + 500, ctr.z - 1800);
+      const hole = new T.Mesh(new T.SphereGeometry(240, 40, 24), basic('#000000', { fog: false })); hole.position.copy(bh); group.add(hole);
+      const diskTex = canvasTex(512, 8, (g, ww) => { const gr = g.createLinearGradient(0, 0, ww, 0); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.15, 'rgba(255,210,140,.95)'); gr.addColorStop(0.5, 'rgba(255,90,170,.6)'); gr.addColorStop(1, 'rgba(120,40,200,0)'); g.fillStyle = gr; g.fillRect(0, 0, ww, 8); });
+      const diskG = new T.RingGeometry(270, 900, 128, 1); const dp = diskG.attributes.position, duv = diskG.attributes.uv;
+      for (let i = 0; i < dp.count; i++) duv.setXY(i, (Math.hypot(dp.getX(i), dp.getY(i)) - 270) / 630, 0.5);
+      const disk = new T.Mesh(diskG, new T.MeshBasicMaterial({ map: diskTex, transparent: true, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide, fog: false }));
+      disk.position.copy(bh); disk.rotation.set(-1.25, 0.2, 0); group.add(disk);
+      const halo = new T.Mesh(new T.TorusGeometry(250, 10, 12, 96), basic('#ffe0b0', { transparent: true, opacity: 0.9, blending: T.AdditiveBlending, fog: false }));
+      halo.position.copy(bh); halo.lookAt(V3(ctr.x, ctr.y, ctr.z)); group.add(halo);
+      anims.push(t => { disk.rotation.z = t * 0.05; });
+      const hullM = std('#c9cfdc', { metalness: 0.85, roughness: 0.25 });
+      for (let k = 0; k < 4; k++) {
+        const p = spot(160, 500, 40, 200, 90); if (!p) continue;
+        const st = new T.Group(); st.position.copy(p);
+        st.add(new T.Mesh(new T.TorusGeometry(40, 4, 10, 48), hullM)); mk(cylG, hullM, 0, 0, 0, 8, 60, 8, st);
+        for (let q = 0; q < 4; q++) { const sp = mk(boxG, hullM, 0, 0, 0, 80, 2, 2, st); sp.rotation.z = q * Math.PI / 4; }
+        mk(new T.TorusGeometry(40, 1, 6, 48), glow('#ff8ae0', 0.9), 0, 0, 0, 1.06, 1.06, 1.06, st);
+        st.rotation.x = rnd() * 1.2; group.add(st); const sp = 0.1 + rnd() * 0.15; anims.push(t => { st.rotation.z = t * sp; });
+      }
+      for (let k = 0; k < 6; k++) {
+        const p = spot(200, 600, 100, 300, 50); if (!p) continue;
+        const cm = new T.Group(); mk(new T.SphereGeometry(4, 10, 8), glow('#ffffff', 1), 0, 0, 0, 1, 1, 1, cm);
+        const tl = mk(new T.ConeGeometry(4, 90, 10, 1, true), glow('#8ad8ff', 0.4), 0, 45, 0, 1, 1, 1, cm); tl.rotation.x = Math.PI;
+        cm.position.copy(p); cm.rotation.z = 1.2; group.add(cm);
+        const base = p.clone(), ph = rnd() * 10; anims.push(t => { const q = ((t * 0.05 + ph) % 1); cm.position.set(base.x + q * 900, base.y - q * 300, base.z); });
+      }
+    } else if (kind === 'volcano') {
+      // erupting volcanoes with glowing craters, lava streams and flying lava bombs
+      const cone = gradientColors(rough(new T.ConeGeometry(1, 1, 18, 6, true).translate(0, 0.5, 0), 0.04, 77), 0, 1, lin('#2a1c18'), lin('#3a2620'));
+      const vols = [];
+      for (let k = 0; k < 8; k++) { const p = spot(220, 700, -10, 10, 220); if (!p) continue; const h = 380 + rnd() * 260; vols.push({ p: V3(p.x, mn.y - 380, p.z), h, r: h * 0.8 }); }
+      vols.forEach((v, k) => {
+        const m = new T.Mesh(cone, new T.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, side: T.DoubleSide }));
+        m.position.copy(v.p); m.scale.set(v.r, v.h, v.r); group.add(m);
+        const top = v.p.clone(); top.y += v.h * 0.97;
+        const crater = new T.Mesh(new T.CircleGeometry(v.r * 0.07, 24).rotateX(-Math.PI / 2), glow('#ffb040', 1)); crater.position.copy(top); group.add(crater);
+        const plume = new T.Mesh(new T.CylinderGeometry(30, 10, 260, 12, 1, true), glow('#ff6a20', 0.25)); plume.position.copy(top).y += 130; group.add(plume);
+        for (let q = 0; q < 3; q++) { const st = new T.Mesh(new T.BoxGeometry(6, v.h * 0.7, 2), glow('#ff5a14', 0.7)); const a = rnd() * 6.28; st.position.set(top.x + Math.cos(a) * v.r * 0.35, v.p.y + v.h * 0.6, top.z + Math.sin(a) * v.r * 0.35); st.rotation.set(Math.sin(a) * 0.62, 0, -Math.cos(a) * 0.62); group.add(st); }
+        const bombs = [];
+        for (let q = 0; q < 8; q++) { const b = new T.Mesh(new T.SphereGeometry(5, 8, 6), glow('#ffcf60', 1)); group.add(b); bombs.push({ b, a: rnd() * 6.28, s: 0.7 + rnd() * 0.6, ph: rnd() }); }
+        anims.push(t => { bombs.forEach(o => { const q = (t * 0.25 * o.s + o.ph) % 1, d = q * 160; o.b.position.set(top.x + Math.cos(o.a) * d, top.y + 260 * q - 300 * q * q, top.z + Math.sin(o.a) * d); }); });
+      });
+      const lm = new T.Mesh(new T.PlaneGeometry(9000, 9000).rotateX(-Math.PI / 2), basic('#4a1a10')); lm.position.set(ctr.x, mn.y - 380, ctr.z); group.add(lm);
+    } else if (kind === 'tornado') {
+      // swirling tornado funnels and wind turbines on floating rocks, with lightning
+      const swirl = canvasTex(128, 256, (g, ww, hh) => { g.clearRect(0, 0, ww, hh); for (let i = 0; i < 40; i++) { g.strokeStyle = 'rgba(200,210,220,' + (0.1 + Math.random() * 0.3) + ')'; g.lineWidth = 2 + Math.random() * 6; g.beginPath(); const y = Math.random() * hh; g.moveTo(0, y); g.bezierCurveTo(ww * 0.3, y - 30, ww * 0.7, y + 30, ww, y - 10); g.stroke(); } }, true);
+      for (let k = 0; k < 5; k++) {
+        const p = spot(260, 700, -100, -60, 120); if (!p) continue;
+        const tw = new T.Mesh(new T.CylinderGeometry(90, 8, 520, 24, 8, true).translate(0, 260, 0), new T.MeshBasicMaterial({ map: swirl, transparent: true, opacity: 0.75, depthWrite: false, side: T.DoubleSide, color: lin('#8a96a8') }));
+        tw.position.copy(p).y -= 200; group.add(tw);
+        const sp = 1.2 + rnd(), x0 = p.x, z0 = p.z, ph = rnd() * 6; anims.push(t => { tw.rotation.y = t * sp; tw.position.x = x0 + Math.sin(t * 0.1 + ph) * 120; tw.position.z = z0 + Math.cos(t * 0.13 + ph) * 120; });
+      }
+      const rockG = rough(new T.ConeGeometry(1, 1.4, 8, 2).rotateX(Math.PI).translate(0, -0.7, 0), 0.2, 88);
+      const towerM = std('#e8edf2', { metalness: 0.4, roughness: 0.4 });
+      for (let k = 0; k < 14; k++) {
+        const p = spot(60, 260, -40, 40, 40); if (!p) continue;
+        const s = 10 + rnd() * 10, g = new T.Group(); g.position.copy(p);
+        const rk = new T.Mesh(rockG, std('#5a5f68', { flatShading: true })); rk.scale.set(s, s, s); g.add(rk);
+        mk(new T.CylinderGeometry(0.6, 1.2, 1, 10), towerM, 0, 18, 0, 1, 36, 1, g);
+        const hub = new T.Group(); hub.position.set(0, 36, 1.4); g.add(hub);
+        for (let q = 0; q < 3; q++) { const bl = mk(boxG, towerM, 0, 8, 0, 1.2, 16, 0.25, hub); const arm = new T.Group(); arm.rotation.z = q * 2.094; arm.add(bl); hub.add(arm); }
+        g.rotation.y = rnd() * 6; group.add(g); const sp = 1.5 + rnd(); anims.push(t => { hub.rotation.z = t * sp; });
+      }
+      const pts = []; for (let k = 0; k < 12; k++) pts.push(0, 0, 0);
+      const bg = new T.BufferGeometry(); bg.setAttribute('position', new T.Float32BufferAttribute(pts, 3));
+      const bolt = new T.Line(bg, new T.LineBasicMaterial({ color: 0xe8fff0, transparent: true, opacity: 0.95, fog: false }));
+      bolt.frustumCulled = false; bolt.visible = false; group.add(bolt);
+      world.lightning = { bolt, next: 2 + rnd() * 3, life: 0 };
+    } else if (kind === 'zen') {
+      // red torii gates over the road, pagodas and cherry trees on floating islands, stone lanterns
+      const red = std('#c8241c', { roughness: 0.5 }), black = std('#1a1414', { roughness: 0.6 });
+      trackSpots(140).forEach(i => {
+        const g = new T.Group();
+        for (const sx of [-1, 1]) mk(cylG, red, sx * (w / 2 + 1.8), 7, 0, 0.8, 14, 0.8, g);
+        mk(boxG, black, 0, 14.6, 0, w + 8, 1.0, 1.4, g); mk(boxG, red, 0, 12.6, 0, w + 5, 0.8, 1.0, g);
+        g.matrixAutoUpdate = false; place(g, i, 0, 0); group.add(g);
+      });
+      const isl = [], cano = [], trunks = [];
+      for (let k = 0; k < 30; k++) {
+        const s = 14 + rnd() * 22, p = spot(60, 240, -60, 40, s + 30); if (!p) continue;
+        isl.push({ pos: p.clone(), sx: s, sy: s * 1.2, sz: s, ry: rnd() * 6, color: jitterColor('#7a6a6a', rnd, 0.3) });
+        if (rnd() < 0.35) {
+          const pg = new T.Group(); pg.position.copy(p).y += 1;
+          for (let f = 0; f < 4; f++) { const sz = 9 - f * 1.7; mk(boxG, std('#f2e6d0'), 0, f * 5 + 2, 0, sz, 4, sz, pg); const roof = mk(new T.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), std('#2a3a4a'), 0, f * 5 + 4.6, 0, sz * 0.95, 2.2, sz * 0.95, pg); roof.castShadow = false; }
+          group.add(pg);
+        }
+        const tc = 2 + Math.floor(rnd() * 3);
+        for (let q = 0; q < tc; q++) { const a = rnd() * 6.28, rr = rnd() * s * 0.55, h = 5 + rnd() * 4; const b = V3(p.x + Math.cos(a) * rr, p.y, p.z + Math.sin(a) * rr); trunks.push({ pos: b.clone().setY(b.y + h / 2), sx: 0.6, sy: h, sz: 0.6, color: lin('#4a3028') }); cano.push({ pos: b.clone().setY(b.y + h + 2), sx: 5 + rnd() * 3, sy: 3.5 + rnd() * 2, sz: 5 + rnd() * 3, color: jitterColor('#ff9fc4', rnd, 0.25) }); }
+      }
+      group.add(instanced(rough(new T.ConeGeometry(1, 1.6, 8, 2).rotateX(Math.PI).translate(0, -0.8, 0), 0.2, 66), std('#ffffff', { flatShading: true }), isl));
+      group.add(instanced(new T.CylinderGeometry(0.6, 1, 1, 6), std('#ffffff'), trunks));
+      group.add(instanced(rough(new T.IcosahedronGeometry(1, 1), 0.25, 67), std('#ffffff', { flatShading: true, emissive: lin('#ff6fa8'), emissiveIntensity: 0.12 }), cano));
+      trackSpots(90).forEach((i, k) => { const lt = new T.Group(); mk(boxG, std('#9a9a92'), 0, 1.2, 0, 1.2, 2.4, 1.2, lt); mk(boxG, glow('#ffd28a', 0.9), 0, 3, 0, 1.4, 1.2, 1.4, lt); mk(new T.ConeGeometry(1.4, 1, 4).rotateY(Math.PI / 4), std('#7a7a72'), 0, 4.1, 0, 1, 1, 1, lt); lt.matrixAutoUpdate = false; place(lt, i, (k % 2 ? 1 : -1) * (w / 2 + 3), 0); group.add(lt); });
+    } else if (kind === 'digital') {
+      // glowing data grid below, rotating wireframe shapes and falling data streams
+      const gridTex = canvasTex(128, 128, (g, ww, hh) => { g.fillStyle = '#010806'; g.fillRect(0, 0, ww, hh); g.strokeStyle = '#3dffa0'; g.lineWidth = 2; g.shadowColor = '#3dffa0'; g.shadowBlur = 6; g.strokeRect(1, 1, ww - 2, hh - 2); }, true);
+      gridTex.repeat.set(160, 160);
+      const floor = new T.Mesh(new T.PlaneGeometry(16000, 16000).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ map: gridTex })); floor.position.set(ctr.x, mn.y - 140, ctr.z); group.add(floor);
+      anims.push(t => { gridTex.offset.y = -t * 0.02; });
+      const shapes = [new T.IcosahedronGeometry(1, 0), new T.BoxGeometry(1.4, 1.4, 1.4), new T.OctahedronGeometry(1, 0), new T.TetrahedronGeometry(1.2, 0), new T.DodecahedronGeometry(1, 0)].map(g2 => new T.EdgesGeometry(g2));
+      const cols = ['#3dffa0', '#ff2fd0', '#7df9ff'];
+      for (let k = 0; k < 30; k++) {
+        const p = spot(60, 320, -30, 160, 40); if (!p) continue;
+        const s = 12 + rnd() * 30, m = new T.LineSegments(shapes[k % shapes.length], new T.LineBasicMaterial({ color: lin(cols[k % 3]), transparent: true, opacity: 0.9 }));
+        m.position.copy(p); m.scale.setScalar(s); group.add(m); const sp = 0.2 + rnd() * 0.5; anims.push(t => { m.rotation.set(t * sp, t * sp * 0.7, 0); });
+      }
+      const N = 160, pos = new Float32Array(N * 6), base = [];
+      for (let k = 0; k < N; k++) { const p = spot(30, 260, -60, 60, 10) || V3(ctr.x, ctr.y, ctr.z); base.push({ x: p.x, z: p.z, y0: p.y + 120, sp: 40 + rnd() * 60, ph: rnd() * 300 }); }
+      const dg = new T.BufferGeometry(); dg.setAttribute('position', new T.BufferAttribute(pos, 3));
+      const streams = new T.LineSegments(dg, new T.LineBasicMaterial({ color: lin('#3dffa0'), transparent: true, opacity: 0.6 })); streams.frustumCulled = false; group.add(streams);
+      anims.push(t => { base.forEach((b, k) => { const y = b.y0 - ((t * b.sp + b.ph) % 300); pos.set([b.x, y, b.z, b.x, y + 14, b.z], k * 6); }); dg.attributes.position.needsUpdate = true; });
+    } else if (kind === 'stadium') {
+      // floating grandstands full of fans, a giant golden trophy, flags and searchlights
+      const crowd = canvasTex(256, 64, (g, ww, hh) => { g.fillStyle = '#2a2a3a'; g.fillRect(0, 0, ww, hh); const cs = ['#ff3b30', '#ffd23a', '#2f8fff', '#ffffff', '#3dff8a', '#ff8ae0']; for (let y = 4; y < hh; y += 8) for (let x = 2; x < ww; x += 5) { g.fillStyle = cs[(Math.random() * cs.length) | 0]; g.fillRect(x, y + Math.random() * 2, 3, 4); } }, true);
+      const standM = new T.MeshStandardMaterial({ map: crowd, roughness: 0.9 }), frameM = std('#d8dce6', { metalness: 0.6, roughness: 0.4 });
+      trackSpots(260).forEach((i, k) => {
+        const side = k % 2 ? 1 : -1, g = new T.Group();
+        for (let t2 = 0; t2 < 5; t2++) { const tier = mk(boxG, standM, 0, t2 * 3 + 1.5, t2 * 3.2, 60, 3, 3.2, g); tier.material = standM; }
+        mk(boxG, frameM, 0, 20, 7, 64, 0.8, 20, g);
+        for (const x of [-30, 30]) mk(cylG, frameM, x, 10, 14, 0.8, 20, 0.8, g);
+        g.matrixAutoUpdate = false; const m = frameMat(i, side * (w / 2 + 34), -2); m.multiply(new T.Matrix4().makeRotationY(side > 0 ? -Math.PI / 2 : Math.PI / 2)); g.matrix.copy(m); group.add(g);
+      });
+      const pts = []; for (let k = 0; k <= 24; k++) { const t2 = k / 24; pts.push(new T.Vector2(t2 < 0.2 ? 18 - t2 * 40 : t2 < 0.55 ? 8 - (t2 - 0.2) * 14 : t2 < 0.95 ? 3 + Math.sin((t2 - 0.55) / 0.4 * Math.PI) * 22 : 2, t2 * 90)); }
+      const trophy = new T.Mesh(new T.LatheGeometry(pts, 40), std('#ffd25a', { metalness: 1, roughness: 0.18, envMapIntensity: 1.6, emissive: lin('#7a5a10'), emissiveIntensity: 0.25 }));
+      frameAt0: { const fi = Math.max(0, n - 260); trophy.position.set(P[fi * 3] + R[fi * 3] * 80, P[fi * 3 + 1] + 10, P[fi * 3 + 2] + R[fi * 3 + 2] * 80); }
+      group.add(trophy); anims.push(t => { trophy.rotation.y = t * 0.3; });
+      const flagCols = ['#ff3b30', '#ffd23a', '#2f8fff', '#3dff8a'];
+      trackSpots(120).forEach((i, k) => { const f = new T.Group(); mk(cylG, frameM, 0, 6, 0, 0.18, 12, 0.18, f); const fl = mk(new T.PlaneGeometry(4, 2.4), basic(flagCols[k % 4], { side: T.DoubleSide }), 2, 10.6, 0, 1, 1, 1, f); anims.push(t => { fl.rotation.y = Math.sin(t * 4 + k) * 0.4; }); f.matrixAutoUpdate = false; place(f, i, (k % 2 ? 1 : -1) * (w / 2 + 2.4), 0); group.add(f); });
+      for (let k = 0; k < 10; k++) { const p = spot(100, 400, -200, -100, 40); if (!p) continue; const b = new T.Mesh(new T.CylinderGeometry(2, 14, 700, 10, 1, true).translate(0, 350, 0), glow('#fff2c0', 0.12)); b.position.copy(p); group.add(b); const ph = rnd() * 6; anims.push(t => { b.rotation.z = Math.sin(t * 0.4 + ph) * 0.35; b.rotation.x = Math.cos(t * 0.3 + ph) * 0.25; }); }
+    }
+
     // ----- weather -----
     if (th.weather) {
       const wcfg = th.weather, cnt = wcfg.count, size = 170, half = size / 2;
@@ -652,6 +879,7 @@
     world.update = function (dt, time, cam, vel) {
       sky.position.copy(cam.position);
       updateFlyers(time, dt);
+      for (const a of anims) a(time, dt);
       sky.material.uniforms.time.value = time;
       padTex.offset.y = -time * 1.6;
       if (world.lavaTex) { world.lavaTex.offset.x = time * 0.004; world.lavaTex.offset.y = time * 0.006; }

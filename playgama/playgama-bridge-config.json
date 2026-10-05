@@ -1,0 +1,6 @@
+{
+  "advertisement": {
+    "interstitial": { "autoShow": false },
+    "minimumDelayBetweenInterstitial": 60
+  }
+}

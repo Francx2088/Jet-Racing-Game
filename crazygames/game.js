@@ -861,7 +861,7 @@
   $('levelsBack').addEventListener('click', () => { if (state.mode !== 'menu') { startMenuDemo(); return; } show('levels', false); show('menu', true); });
   $('soundBtn').addEventListener('click', () => { audio.init(); audio.setMute(save.sound); setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off'); });
   setBtn('soundBtn', save.sound ? 'Sound on' : 'Sound off');
-  $('nextBtn').addEventListener('click', () => startLevel(Math.min(state.levelIdx + 1, 7)));
+  $('nextBtn').addEventListener('click', () => startLevel(Math.min(state.levelIdx + 1, LAST)));
   $('retryBtn').addEventListener('click', () => startLevel(state.levelIdx));
   $('resLevelsBtn').addEventListener('click', () => { startMenuDemo(); buildLevelGrid(); show('menu', false); show('levels', true); });
   $('pause').addEventListener('click', togglePause);

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#070b1c">
+<title>Sky Racing 🏎️</title>
+<!-- Playgama Bridge SDK (official CDN) -->
+<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>
+<style>
+  /* fonts are bundled with the game (no external requests) */
+  @font-face{font-family:"Saira Condensed";font-weight:700;font-display:swap;src:url(fonts/saira-condensed-latin-700-normal.woff2) format("woff2")}
+  @font-face{font-family:"Saira Condensed";font-weight:800;font-display:swap;src:url(fonts/saira-condensed-latin-800-normal.woff2) format("woff2")}
+  @font-face{font-family:"Saira Condensed";font-weight:900;font-display:swap;src:url(fonts/saira-condensed-latin-900-normal.woff2) format("woff2")}
+  @font-face{font-family:"Chakra Petch";font-weight:500 600;font-display:swap;src:url(fonts/chakra-petch-latin-600-normal.woff2) format("woff2")}
+  @font-face{font-family:"Chakra Petch";font-weight:700;font-display:swap;src:url(fonts/chakra-petch-latin-700-normal.woff2) format("woff2")}
+  /* Layout: full-screen 3D view; HUD hugs the top edge (position left, speedometer centre, nitro right); controls hug the bottom. */
+  :root{
+    --ink:#f3f6ff; --dim:rgba(225,233,255,.72); --accent:#ff8a1f; --accent-hi:#ffc247; --nitro:#33d6ff;
+    --danger:#ff4b3a; --ok:#3dff8a; --panel:rgba(7,11,28,.62); --panel-2:rgba(7,11,28,.38); --line:rgba(255,255,255,.16);
+    --bg:#070b1c;
+    --f-display:"Saira Condensed","Arial Narrow","Roboto Condensed",system-ui,sans-serif;
+    --f-ui:"Chakra Petch","Segoe UI",system-ui,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden;touch-action:none;overscroll-behavior:none;font-family:var(--f-ui);color:var(--ink)}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hidden{display:none!important}
+  button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+  button:focus-visible{outline:2px solid var(--accent-hi);outline-offset:3px}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none}
+  #hud>*{position:absolute}
+  #pause{left:calc(12px + env(safe-area-inset-left));top:calc(12px + env(safe-area-inset-top));pointer-events:auto;width:38px;height:38px;border-radius:10px;
+    background:var(--panel-2);border:1px solid var(--line);font-size:13px;letter-spacing:-1px;backdrop-filter:blur(3px)}
+  #posBox{left:calc(58px + env(safe-area-inset-left));top:calc(6px + env(safe-area-inset-top));line-height:1;text-shadow:0 2px 10px rgba(0,0,0,.65)}
+  #posBox .lbl{font-size:10px;letter-spacing:.24em;color:var(--dim);margin-bottom:2px}
+  #pos{font-family:var(--f-display);font-weight:900;font-size:44px;font-style:italic}
+  #pos span{font-size:20px;color:var(--dim);margin-left:2px}
+  #mini{left:calc(12px + env(safe-area-inset-left));top:calc(64px + env(safe-area-inset-top));width:96px;height:96px;border-radius:14px;background:var(--panel-2);border:1px solid var(--line)}
+  #speedo{left:50%;top:calc(2px + env(safe-area-inset-top));transform:translateX(-50%);width:var(--spd,230px);text-align:center;filter:drop-shadow(0 3px 8px rgba(0,0,0,.55))}
+  #speedo svg{display:block;width:100%;height:auto}
+  #time{margin-top:-4px;font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:.06em;font-variant-numeric:tabular-nums;color:var(--ink);text-shadow:0 2px 8px #000}
+  #nitroBox{right:calc(12px + env(safe-area-inset-right));top:calc(8px + env(safe-area-inset-top));width:var(--nos,160px);filter:drop-shadow(0 3px 8px rgba(0,0,0,.55))}
+  #nitroBox svg{display:block;width:100%;height:auto}
+  #nitroBox.on{filter:drop-shadow(0 0 10px rgba(51,214,255,.85))}
+  .ctl-portrait{--spd:160px;--nos:100px;--lt:118px}
+  .ctl-portrait #pos{font-size:34px} .ctl-portrait #pos span{font-size:16px} .ctl-portrait #mini{width:80px;height:80px;top:calc(58px + env(safe-area-inset-top))}
+  .ctl-portrait #time{font-size:15px}
+  .ctl-desktop{--spd:clamp(220px,24vw,290px);--nos:clamp(150px,15vw,190px);--lt:calc(var(--spd) * .6 + 26px)}
+  .ctl-landscape{--lt:150px}
+
+  /* controls */
+  #arrows,#keys,#touchRing{display:none}
+  .ctl-landscape #arrows{display:flex}
+  .ctl-desktop #keys{display:block}
+  #arrows{left:calc(16px + env(safe-area-inset-left));bottom:calc(16px + env(safe-area-inset-bottom));gap:14px;pointer-events:auto;touch-action:none}
+  #arrows button{width:92px;height:84px;border-radius:14px;transform:skewX(-10deg);background:var(--panel-2);border:1px solid var(--line);font-size:32px;color:var(--ink);backdrop-filter:blur(3px);pointer-events:none;transition:background .06s}
+  #arrows button.on{background:linear-gradient(180deg,var(--accent-hi),var(--accent));color:#2a1200;border-color:transparent}
+  #keys{left:18px;bottom:16px;font-size:11px;letter-spacing:.16em;color:var(--dim);line-height:1.8;text-shadow:0 1px 6px #000}
+  #keys b{color:var(--ink);font-weight:700}
+  #touchRing{left:0;top:0;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.06)}
+  #touchRing i{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe9a8,var(--accent) 75%);box-shadow:0 2px 12px rgba(255,138,31,.6)}
+  #touchRing.on{display:block}
+  #touchHint{left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);font-size:12px;letter-spacing:.2em;color:var(--dim);white-space:nowrap;display:none;text-shadow:0 1px 6px #000}
+  .ctl-portrait #touchHint{display:block}
+
+  /* start lights */
+  #lights{left:50%;top:calc(var(--lt,150px) + env(safe-area-inset-top));transform:translateX(-50%);display:none;gap:12px;padding:10px 16px;border-radius:14px;background:rgba(7,11,28,.55);border:1px solid var(--line)}
+  #lights.show{display:flex}
+  #lights i{width:26px;height:26px;border-radius:50%;background:#2a0b0b;box-shadow:inset 0 2px 6px rgba(0,0,0,.8)}
+  #lights i.on{background:radial-gradient(circle at 40% 35%,#ff8a7a,#ff1f12 60%);box-shadow:0 0 16px #ff2a1f}
+  #lights.go i{background:radial-gradient(circle at 40% 35%,#b9ffb0,#22e04a 60%);box-shadow:0 0 18px #2bff5a}
+  /* messages */
+  #toast{left:50%;top:31%;transform:translateX(-50%);opacity:0;white-space:nowrap;font-family:var(--f-display);font-weight:900;font-style:italic;font-size:34px;letter-spacing:.04em;
+    padding:2px 22px;background:linear-gradient(90deg,transparent,rgba(7,11,28,.6) 18%,rgba(7,11,28,.6) 82%,transparent);text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  #toast.show{animation:pop .9s ease-out}
+  @keyframes pop{0%{opacity:0;transform:translateX(-50%) scale(.6)}15%{opacity:1;transform:translateX(-50%) scale(1.08)}70%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px)}}
+  #count{left:50%;top:44%;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:900;font-style:italic;font-size:130px;line-height:1;
+    color:var(--ink);-webkit-text-stroke:3px var(--accent);text-shadow:0 6px 28px rgba(0,0,0,.6)}
+  #count.tick{animation:tick .9s ease-out}
+  @keyframes tick{0%{transform:translate(-50%,-50%) scale(1.8);opacity:0}25%{opacity:1}100%{transform:translate(-50%,-50%) scale(.9);opacity:.9}}
+  #intro{left:50%;top:calc(var(--lt,150px) + 62px + env(safe-area-inset-top));transform:translateX(-50%);text-align:center;width:min(92vw,620px);text-shadow:0 2px 14px rgba(0,0,0,.8)}
+  #intro .n{font-size:11px;letter-spacing:.34em;color:var(--accent-hi)}
+  #intro .t{font-family:var(--f-display);font-size:40px;font-weight:900;font-style:italic;letter-spacing:.02em;line-height:1.05}
+  #intro .w{font-size:14px;color:var(--ink);margin-top:4px;text-wrap:balance}
+  #intro .c{font-size:11px;color:var(--dim);margin-top:8px;letter-spacing:.16em;text-transform:uppercase}
+  #vig{inset:0;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(51,214,255,.45) 100%);transition:opacity .15s}
+  #flash{inset:0;opacity:0;background:#fff;transition:opacity .12s}
+
+  /* ---------- screens ---------- */
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px 16px;
+    background:linear-gradient(180deg,rgba(7,11,28,.1),rgba(7,11,28,.82));overflow:auto}
+  .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--accent-hi);text-transform:uppercase}
+  .logo{font-family:var(--f-display);font-weight:900;font-style:italic;line-height:.86;font-size:clamp(58px,15vw,118px);letter-spacing:.01em;text-shadow:0 8px 30px rgba(0,0,0,.5)}
+  .logo em{font-style:italic;color:var(--accent);display:block}
+  .stripe{width:min(70vw,320px);height:6px;transform:skewX(-30deg);background:linear-gradient(90deg,var(--accent) 0 60%,var(--accent-hi) 60% 80%,var(--nitro) 80%)}
+  .sub{font-size:12px;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-width:min(76vw,300px);height:54px;padding:0 28px;transform:skewX(-12deg);
+    background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(6px);font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.1em;text-transform:uppercase}
+  .btn>span{display:inline-block;transform:skewX(12deg)}
+  .btn.primary{background:linear-gradient(180deg,var(--accent-hi),var(--accent));color:#2a1200;border:0;font-size:26px;height:62px;box-shadow:0 8px 26px rgba(255,138,31,.45)}
+  .btn:active{filter:brightness(1.15)}
+  .btn:disabled{opacity:.55}
+  .row{display:flex;gap:10px;justify-content:center;width:min(76vw,300px)}
+  .row .btn{min-width:0;flex:1;font-size:16px;padding:0 10px;height:48px}
+  .pips{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px;max-width:min(90vw,330px)}
+  .pips i{width:22px;height:7px;transform:skewX(-30deg);background:rgba(255,255,255,.18)}
+  .pips i.done{background:var(--accent)} .pips i.now{background:var(--nitro)}
+  .note{font-size:12px;color:var(--dim);letter-spacing:.06em;max-width:36ch;text-wrap:balance}
+
+  h2{margin:0;font-family:var(--f-display);font-weight:900;font-style:italic;font-size:34px;letter-spacing:.06em}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;width:min(94vw,800px);margin:8px 0}
+  .card{position:relative;height:120px;border-radius:12px;overflow:hidden;text-align:left;padding:10px 12px;border:1px solid var(--line);display:flex;flex-direction:column;justify-content:flex-end}
+  .card::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 30%,rgba(5,8,20,.75))}
+  .card>*{position:relative}
+  .card .n{position:absolute;left:12px;top:4px;font-family:var(--f-display);font-size:40px;font-weight:900;font-style:italic;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+  .card .t{font-family:var(--f-display);font-weight:800;font-size:19px;letter-spacing:.03em}
+  .card .s{font-size:11px;color:var(--dim)}
+  .card .chip{position:absolute;right:8px;top:8px;font-size:10px;font-weight:700;letter-spacing:.14em;padding:3px 8px;border-radius:4px;background:rgba(5,8,20,.65)}
+  .card .chip.next{background:var(--nitro);color:#02203a}
+  .card .chip.done{color:var(--accent-hi)}
+  .card.locked{filter:grayscale(.85) brightness(.5)}
+  .card.cleared{filter:saturate(.7) brightness(.85)}
+  .card.next{outline:2px solid var(--nitro);outline-offset:2px}
+
+  #result .big{font-family:var(--f-display);font-size:clamp(70px,18vw,120px);font-weight:900;font-style:italic;line-height:.9;text-shadow:0 6px 24px rgba(0,0,0,.6)}
+  #result .big sup{font-size:.4em;vertical-align:top;margin-left:4px}
+  #resStars{font-size:40px;letter-spacing:8px;color:var(--accent-hi);text-shadow:0 2px 12px rgba(0,0,0,.5)}
+  #resStats{display:grid;grid-template-columns:auto auto;gap:4px 22px;font-size:14px;margin:6px 0 2px;padding:10px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  #resStats dt{color:var(--dim);text-align:left;letter-spacing:.12em;font-size:11px;text-transform:uppercase;align-self:center}
+  #resStats dd{margin:0;text-align:right;font-family:var(--f-display);font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+  #resMsg{font-size:13px;color:var(--dim);max-width:40ch;text-wrap:balance}
+  #loading{background:var(--bg);z-index:9}
+  #loading .spin{width:46px;height:46px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:var(--accent);animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #loadTxt{font-family:var(--f-display);font-weight:800;font-style:italic;font-size:22px;letter-spacing:.06em}
+  #err{position:fixed;left:8px;right:8px;bottom:8px;background:#400;color:#fff;font:12px monospace;padding:8px;border-radius:8px;z-index:99;white-space:pre-wrap}
+
+  @media (max-height:520px){
+    .logo{font-size:clamp(40px,13vh,70px)} .sub{margin:0} .btn{height:44px;font-size:16px} .btn.primary{height:50px;font-size:20px} .row .btn{height:40px}
+    #count{font-size:90px} #intro .t{font-size:28px} #intro .w{font-size:12px}
+    #grid{grid-template-columns:repeat(4,1fr);gap:8px;margin:2px 0} .card{height:86px;padding:6px 8px} .card .n{font-size:26px;top:2px} .card .t{font-size:15px} .card .s{display:none}
+    h2{font-size:22px} #result .big{font-size:56px} #resStars{font-size:26px} #resStats{padding:6px 14px} #resStats dd{font-size:15px}
+    #mini{width:76px;height:76px;top:calc(58px + env(safe-area-inset-top))} #pos{font-size:34px}
+  }
+  @media (prefers-reduced-motion:reduce){ #toast.show,#count.tick{animation:none;opacity:1} .spin{animation:none} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud" class="hidden">
+  <button id="pause" aria-label="Pause">❚❚</button>
+  <div id="posBox"><div class="lbl">POS</div><div id="pos"><b>6</b><span>/6</span></div></div>
+  <canvas id="mini" width="208" height="208"></canvas>
+  <div id="speedo"><svg id="spd" viewBox="0 0 240 136" aria-label="Speed"></svg><div id="time">0:00.0</div></div>
+  <div id="nitroBox"><svg id="nos" viewBox="0 0 160 58" aria-label="Nitro"></svg></div>
+  <div id="arrows"><button id="btnL" aria-label="Steer left">◀</button><button id="btnR" aria-label="Steer right">▶</button></div>
+  <div id="keys"><b>← →</b> STEER<br><b>P</b> PAUSE</div>
+  <div id="lights"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="toast"></div>
+  <div id="count"></div>
+  <div id="intro"></div>
+  <div id="vig"></div>
+  <div id="flash"></div>
+</div>
+
+<div id="menu" class="screen">
+  <div class="eyebrow">Above the clouds</div>
+  <div class="logo">SKY<em>RACING</em></div>
+  <div class="stripe"></div>
+  <div class="sub">20 tracks · 5 rivals · boost pads</div>
+  <button class="btn primary" id="playBtn"><span>Play</span></button>
+  <div class="row">
+    <button class="btn" id="levelsBtn"><span>Tracks</span></button>
+    <button class="btn" id="soundBtn"><span>Sound on</span></button>
+  </div>
+  <div class="pips" id="pips"></div>
+  <div class="note" id="menuBest"></div>
+</div>
+
+<div id="levels" class="screen hidden">
+  <div class="eyebrow" id="gridNote">Career</div>
+  <h2>TRACKS</h2>
+  <div id="grid"></div>
+  <button class="btn" id="levelsBack"><span>Back</span></button>
+</div>
+
+<div id="result" class="screen hidden">
+  <div class="eyebrow" id="resLevel">Level 1</div>
+  <div class="big" id="resPlace">1<sup>ST</sup></div>
+  <div id="resStars">★★★</div>
+  <dl id="resStats"></dl>
+  <div id="resMsg"></div>
+  <button class="btn primary" id="nextBtn"><span>Next track</span></button>
+  <div class="row">
+    <button class="btn" id="retryBtn"><span>Retry</span></button>
+    <button class="btn" id="resLevelsBtn"><span>Tracks</span></button>
+  </div>
+</div>
+
+<div id="pauseScr" class="screen hidden">
+  <h2>PAUSED</h2>
+  <button class="btn primary" id="resumeBtn"><span>Resume</span></button>
+  <button class="btn" id="pRetryBtn"><span>Restart</span></button>
+  <button class="btn" id="pMenuBtn"><span>Menu</span></button>
+</div>
+
+<div id="loading" class="screen hidden"><div class="spin"></div><div id="loadTxt">Loading…</div></div>
+
+<script src="three.min.js"></script>
+<script src="levels.js"></script>
+<script src="track.js"></script>
+<script src="world.js"></script>
+<script src="cars.js"></script>
+<script src="playgama.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
