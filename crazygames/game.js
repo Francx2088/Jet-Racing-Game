@@ -701,7 +701,7 @@
     const reached = Math.min(save.reached || 1, NL), stars = Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
     $('pips').innerHTML = LEVELS.map((L, i) => '<i class="' + (save.allDone || i + 1 < reached ? 'done' : i + 1 === reached ? 'now' : '') + '"></i>').join('');
     $('menuBest').textContent = save.allDone ? 'All ' + NL + ' tracks unlocked · ' + stars + ' / ' + NL * 3 + ' ★ · pick any track.'
-      : reached > 1 ? 'Progress saved · continue at Track ' + reached + ' of ' + NL + '. Finish top 3 to unlock the next one.' : 'Finish top 3 to unlock the next track. Clear all ' + NL + ' to pick tracks freely.';
+      : reached > 1 ? 'Progress saved · continue at Track ' + reached + ' of ' + NL + '. Finish top 3 to unlock the next one · replay passed tracks from Tracks.' : 'Finish top 3 to unlock the next track. Clear all ' + NL + ' to pick tracks freely.';
     setBtn('playBtn', save.allDone ? 'Choose track' : reached > 1 ? 'Continue · Track ' + reached : 'Play');
   }
   function setBtn(id, txt) { $(id).querySelector('span').textContent = txt; }
@@ -837,20 +837,20 @@
   function buildLevelGrid() {
     const g = $('grid'); g.innerHTML = '';
     const cur = Math.min(save.reached || 1, NL);
-    $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Career · race Track ' + cur + ' next · unlock all ' + NL + ' to pick freely';
+    $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Career · race Track ' + cur + ' next or replay any track you have passed';
     LEVELS.forEach((L, i) => {
-      const open = save.allDone || i + 1 === cur;
+      const open = save.allDone || i + 1 <= cur;            // passed tracks and the next one can be raced
       const c = document.createElement('button');
-      const cleared = !save.allDone && i + 1 < cur;
-      c.className = 'card' + (open ? (save.allDone ? '' : ' next') : cleared ? ' cleared' : ' locked');
+      const isNext = !save.allDone && i + 1 === cur;
+      c.className = 'card' + (isNext ? ' next' : open ? '' : ' locked');
       const s = L.theme.sky; c.style.background = 'linear-gradient(180deg,' + s.top + ',' + s.mid + ' 60%,' + s.hor + ')';
       const b = save.best[L.id], stars = b ? b.stars : 0;
-      const chip = !save.allDone && open ? '<span class="chip next">NEXT</span>' : (open || cleared) ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : '<span class="chip">🔒</span>';
+      const chip = isNext ? '<span class="chip next">NEXT</span>' : open ? '<span class="chip done">' + '★'.repeat(stars) + '☆'.repeat(3 - stars) + '</span>' : '<span class="chip">🔒</span>';
       c.innerHTML = '<div class="n">' + L.id + '</div>' + chip + '<div class="t">' + L.name + '</div><div class="s">' + L.tag + '</div>';
       if (!open) c.setAttribute('aria-disabled', 'true');
       c.addEventListener('click', () => {
         if (open) startLevel(i);
-        else $('gridNote').textContent = i + 1 < cur ? 'Cleared! Unlock all ' + NL + ' tracks to replay any of them.' : 'Locked · finish Track ' + cur + ' in the top 3 first.';
+        else $('gridNote').textContent = 'Locked · finish Track ' + cur + ' in the top 3 first.';
       });
       g.appendChild(c);
     });
