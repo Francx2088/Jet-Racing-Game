@@ -1,4 +1,4 @@
-/* Sky Racing - track generator (pure math, no THREE dependency).
+/* Sky Racers - track generator (pure math, no THREE dependency).
    A track is built by "flying a turtle": each command rotates the frame
    (yaw about world-up, pitch about the road's right axis, roll about the
    forward axis) while stepping forward DS units at a time. That makes

@@ -1,4 +1,4 @@
-# Sky Racing 🏎️
+# Sky Racers 🏎️
 
 A 3D sky-racing browser game (three.js). Open `index.html` through any static server.
 

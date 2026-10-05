@@ -1,4 +1,4 @@
-# Sky Racing 🏎️ — Playgama build
+# Sky Racers 🏎️ — Playgama build
 
 Same game as the YouTube Playables build in the repository root. The only differences:
 

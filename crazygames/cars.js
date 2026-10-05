@@ -1,4 +1,4 @@
-/* Sky Racing - procedural race cars.
+/* Sky Racers - procedural race cars.
    The body is lofted from ~60 cross-sections, so it curves in every direction: sculpted fender crests,
    a lower hood between them, tumblehome sides, real wheel arches cut into the shell. A painted livery
    (base colour, stripes or swooshes, door numbers, sponsor plates, carbon sills) is mapped over the
@@ -185,7 +185,7 @@
         c.fillText(String(sp.num), 0, r * 0.08);
       }, side);
       decal(0.3, 0.34, c => { const w = 0.5 * kx, h = 0.13 * kx; c.fillStyle = '#0d0d12'; c.fillRect(-w / 2, -h / 2, w, h); c.fillStyle = '#fff'; c.font = '800 ' + Math.round(h * 0.75) + 'px "Saira Condensed","Arial Narrow",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('NITRO', 0, 1); }, side);
-      decal(0.69, 0.31, c => { const w = 0.5 * kx, h = 0.11 * kx; c.fillStyle = '#ffffff'; c.fillRect(-w / 2, -h / 2, w, h); c.fillStyle = '#d11'; c.font = '900 italic ' + Math.round(h * 0.75) + 'px "Saira Condensed","Arial Narrow",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('SKY RACING', 0, 1); }, side);
+      decal(0.69, 0.31, c => { const w = 0.5 * kx, h = 0.11 * kx; c.fillStyle = '#ffffff'; c.fillRect(-w / 2, -h / 2, w, h); c.fillStyle = '#d11'; c.font = '900 italic ' + Math.round(h * 0.75) + 'px "Saira Condensed","Arial Narrow",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('SKY RACERS', 0, 1); }, side);
     }
     // lights (painted on the body and glowing through the emissive map)
     const lamp = (s0, s1, t0, t1, col, glow) => sides(mt => {

@@ -1,4 +1,4 @@
-/* Sky Racing - the 8 levels (data only). */
+/* Sky Racers - the 8 levels (data only). */
 (function (root) {
   'use strict';
   const S = len => ({ len });

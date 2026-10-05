@@ -1,4 +1,4 @@
-# Sky Racing 🏎️ — CrazyGames build
+# Sky Racers 🏎️ — CrazyGames build
 
 Same game as the YouTube Playables build in the repository root. The only differences:
 

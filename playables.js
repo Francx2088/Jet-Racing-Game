@@ -1,4 +1,4 @@
-/* Sky Racing - YouTube Playables bridge.
+/* Sky Racers - YouTube Playables bridge.
    Inside YouTube (ytgame.IN_PLAYABLES_ENV) every platform rule goes through the SDK:
    firstFrameReady -> loadData -> gameReady, saveData for progress (no localStorage), onPause / onResume,
    the YouTube audio setting, sendScore and health logging.

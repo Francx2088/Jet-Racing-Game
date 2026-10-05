@@ -1,4 +1,4 @@
-/* Sky Racing - game logic, input, HUD, audio. */
+/* Sky Racers - game logic, input, HUD, audio. */
 (function () {
   'use strict';
   const T = THREE;

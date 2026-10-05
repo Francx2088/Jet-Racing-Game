@@ -1,4 +1,4 @@
-/* Sky Racing - Playgama Bridge adapter.
+/* Sky Racers - Playgama Bridge adapter.
    Drop-in replacement for the YouTube Playables bridge: it exposes the same window.SkyPlayables
    interface the game already calls, so game.js is identical in every build.
      boot           -> bridge.initialize()
