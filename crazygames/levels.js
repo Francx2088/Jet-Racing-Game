@@ -16,7 +16,7 @@
   const LEVELS = [
     {
       id: 1, name: 'Sunrise Drift', tag: 'Warm up above the cloud sea', twist: 'Wide, forgiving road. Learn to chase boost pads.',
-      scale: 2.4, width: 18, base: 64, aiSkill: 0.97, aiRubber: 0.1, ai: 5, car: 0,
+      scale: 2.4, width: 18, base: 64, aiSkill: 0.98, aiRubber: 0.16, ai: 5, car: 0,
       mech: { pads: 12, obst: 8, mix: ['cones', 'block', 'cones'], gateGap: 7, draft: 14 },
       cmds: [S(160), T(120, 55, 26), S(60), T(120, -65, 26), climb(10, 120), T(150, 95, 30), S(80), T(120, -50, 26), climb(-10, 120),
         T(140, 75, 30), S(120), T(130, -85, 30), S(100), T(110, 60, 28), S(120), T(100, -40, 24), S(200)],
@@ -29,7 +29,7 @@
     },
     {
       id: 2, name: 'Cloud Canyon', tag: 'Leap the sky gaps', twist: 'Long jumps! Keep your line - the road disappears.',
-      scale: 3, width: 17, base: 70, aiSkill: 0.98, aiRubber: 0.1, ai: 5, car: 2,
+      scale: 3, width: 17, base: 70, aiSkill: 0.985, aiRubber: 0.15, ai: 5, car: 2,
       mech: { pads: 12, obst: 10, mix: ['cones', 'gate', 'block', 'bar'], gateGap: 6.4, draft: 14 },
       cmds: [S(100), T(100, -70, 30), S(40), jump(34), T(100, 80, 30), climb(12, 80), T(120, -100, 32), S(50), jump(40), T(110, 60, 28),
         S(30), T(100, -60, 28), climb(-12, 80), T(130, 110, 32), S(60), jump(36), T(100, -50, 28), S(60), T(90, 40, 24), S(150)],
@@ -42,7 +42,7 @@
     },
     {
       id: 3, name: 'Neon Skyline', tag: 'Rooftop S-bends after dark', twist: 'Tight chicanes and a corkscrew. Chain the boost pads.',
-      scale: 3.3, width: 15, base: 77, aiSkill: 0.98, aiRubber: 0.1, ai: 5, car: 1,
+      scale: 3.3, width: 15, base: 77, aiSkill: 0.985, aiRubber: 0.13, ai: 5, car: 1,
       mech: { pads: 14, obst: 12, mix: ['gate', 'laser', 'block', 'cones'], gateGap: 5.4, draft: 14 },
       cmds: [S(120), T(90, 90, 34), T(90, -90, 34), S(40), T(90, 90, 34), T(90, -90, 34), climb(14, 80), CS(90, 360), S(40),
         T(120, -110, 34), S(60), T(80, 60, 30), T(80, -60, 30), climb(-14, 80), T(120, 100, 34), S(100), T(100, -90, 32), S(160)],
@@ -55,7 +55,7 @@
     },
     {
       id: 4, name: 'Storm Coil', tag: 'Crosswinds and lightning', twist: 'Gusts shove you sideways. Fight them through coils and a loop.',
-      scale: 3.2, width: 15, base: 81, aiSkill: 0.99, aiRubber: 0.1, ai: 5, car: 3,
+      scale: 3.2, width: 15, base: 81, aiSkill: 0.99, aiRubber: 0.12, ai: 5, car: 3,
       mech: { pads: 12, obst: 12, mix: ['bar', 'spinner', 'cones', 'block'], gateGap: 5.4, draft: 14, gust: 12 },
       cmds: [S(100), coil(10, 260, 360, 38), S(60), LOOP(48, 50), S(80), T(120, -80, 32), T(120, 90, 32), coil(-10, 240, -270, 38),
         S(80), T(100, 50, 28), T(100, -90, 30), S(120), T(100, 60, 28), S(140)],
@@ -68,7 +68,7 @@
     },
     {
       id: 5, name: 'Desert Mirage', tag: 'Hairpins & slipstreams', twist: 'Hairpins and long jumps. Tuck in behind rivals for a slipstream tow.',
-      scale: 3.5, width: 17, base: 86, aiSkill: 0.99, aiRubber: 0.1, ai: 5, car: 4,
+      scale: 3.5, width: 17, base: 86, aiSkill: 0.99, aiRubber: 0.12, ai: 5, car: 4,
       mech: { pads: 10, obst: 12, mix: ['gate', 'block', 'bar', 'cones'], gateGap: 5.6, draft: 28 },
       cmds: [S(100), T(100, 60, 30), jump(36), T(90, -170, 40), S(60), climb(14, 90), T(90, 170, 40), S(60), jump(44), T(100, -70, 30),
         climb(-14, 90), T(90, 120, 36), S(50), jump(40), T(110, -150, 38), S(80), T(80, 60, 30), S(160)],
