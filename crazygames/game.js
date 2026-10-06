@@ -141,11 +141,16 @@
         const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
         const ctx = this.ctx = new C();
         this.master = ctx.createGain(); this.master.gain.value = save.sound && ytAudio ? 0.6 : 0; this.master.connect(ctx.destination);
-        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(this.master);
-        this.engGain = ctx.createGain(); this.engGain.gain.value = 0; this.engGain.connect(lp);
-        this.o1 = ctx.createOscillator(); this.o1.type = 'sawtooth'; this.o1.frequency.value = 60;
-        this.o2 = ctx.createOscillator(); this.o2.type = 'square'; this.o2.frequency.value = 30;
-        this.o1.connect(this.engGain); this.o2.connect(this.engGain); this.o1.start(); this.o2.start();
+        // recorded engine + nitro sounds (sounds/engine.mp3 loops; sounds/nitro.mp3 plays on every nitro burst)
+        this.engGain = ctx.createGain(); this.engGain.gain.value = 0; this.engGain.connect(this.master);
+        this.nitroGain = ctx.createGain(); this.nitroGain.connect(this.master);
+        const load = url => fetch(url).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no)));
+        load('sounds/engine.mp3').then(buf => {
+          const src = this.engSrc = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+          src.loopStart = 0.1; src.loopEnd = Math.min(buf.duration, 9.18);   // seamless loop region inside the padded file
+          src.connect(this.engGain); src.start(0, 0.1);
+        }).catch(() => {});
+        load('sounds/nitro.mp3').then(buf => { this.nitroBuf = buf; }).catch(() => {});
         const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), d = nb.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
         const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true;
@@ -167,15 +172,25 @@
     engine(frac, boost, on) {
       if (!this.ctx) return;
       const t = this.ctx.currentTime;
-      this.o1.frequency.setTargetAtTime(48 + frac * 150 + (boost ? 25 : 0), t, 0.06);
-      this.o2.frequency.setTargetAtTime(24 + frac * 75, t, 0.06);
-      this.engGain.gain.setTargetAtTime(on ? 0.08 + frac * 0.07 : 0, t, 0.1);
+      if (this.engSrc) this.engSrc.playbackRate.setTargetAtTime(0.78 + frac * 0.55 + (boost ? 0.08 : 0), t, 0.08);
+      this.engGain.gain.setTargetAtTime(on ? 0.3 + frac * 0.4 : 0, t, 0.1);
+      const nitro = on && boost;
+      if (nitro && !this.nitroSrc && this.nitroBuf) {            // nitro fires: the whine builds up from the start
+        const src = this.nitroSrc = this.ctx.createBufferSource(); src.buffer = this.nitroBuf; src.loop = true;
+        src.loopStart = 3.1; src.loopEnd = Math.min(this.nitroBuf.duration, 5.65);
+        const g = src.fade = this.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.85, t + 0.06);
+        src.connect(g); g.connect(this.nitroGain); src.start(t);
+      } else if (!nitro && this.nitroSrc) {                       // nitro over: fade the whine out
+        const src = this.nitroSrc; this.nitroSrc = null;
+        src.fade.gain.cancelScheduledValues(t); src.fade.gain.setValueAtTime(src.fade.gain.value, t); src.fade.gain.linearRampToValueAtTime(0, t + 0.35);
+        src.stop(t + 0.4);
+      }
       this.windGain.gain.setTargetAtTime(on ? frac * frac * 0.32 + (boost ? 0.12 : 0) : 0, t, 0.1);
       this.hp.frequency.setTargetAtTime(500 + frac * 1800, t, 0.1);
     },
     beep(go) { this.tone(go ? 880 : 520, go ? 0.5 : 0.18, 'square', 0.12); },
     ding(n) { this.tone(660 + n * 70, 0.18, 'triangle', 0.18, 990 + n * 70); },
-    boost() { this.tone(180, 0.6, 'sawtooth', 0.14, 700); },
+    boost() { /* the recorded nitro sound starts in engine() as soon as the nitro fires */ },
     ring() { this.tone(520, 0.4, 'sine', 0.2, 1040); },
     crash() { this.tone(120, 0.35, 'sawtooth', 0.25, 40); },
     fin() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, 0.3, 'triangle', 0.2), i * 120)); }
