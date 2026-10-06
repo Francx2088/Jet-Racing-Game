@@ -1,14 +1,3 @@
-/* Crazy Racers - Playgama Bridge adapter.
-   Drop-in replacement for the YouTube Playables bridge: it exposes the same window.SkyPlayables
-   interface the game already calls, so game.js is identical in every build.
-     boot           -> bridge.initialize()
-     gameReady      -> platform.sendMessage('game_ready')
-     load / save    -> bridge.storage (platform cloud / local storage chosen by the Bridge)
-     race running   -> 'gameplay_started'; menus, results, pause, ads -> 'gameplay_stopped'
-     after a race   -> advertisement.showInterstitial() (game frozen and silent until closed / failed)
-     platform pause -> pause_state_changed / visibility_state_changed freeze the game and its audio
-     platform mute  -> platform.isAudioEnabled + audio_state_changed
-   Outside Playgama (no Bridge loaded) every call falls back to harmless local behaviour. */
 (function (root) {
   'use strict';
   const KEY = 'crazyracers.v2';
@@ -24,7 +13,6 @@
   });
   const ev = (name, fallback) => (pg && pg.EVENT_NAME && pg.EVENT_NAME[name]) || fallback;
 
-  // the game freezes (and goes silent) while the platform pauses it or the page is hidden
   const syncFreeze = () => {
     const now = platformPaused || hidden;
     if (now === frozen) return;
@@ -32,7 +20,6 @@
     (now ? pauseCbs : resumeCbs).forEach(f => f());
   };
 
-  // bridge.initialize() must finish before anything else touches the Bridge
   const ready = (async () => {
     const B = root.bridge;
     if (!B || typeof B.initialize !== 'function') return null;
@@ -43,30 +30,29 @@
       audioOn = B.platform.isAudioEnabled !== false;
       if (!audioOn) audioCbs.forEach(f => f(false));
       B.platform.on(ev('AUDIO_STATE_CHANGED', 'audio_state_changed'), on => { audioOn = !!on; audioCbs.forEach(f => f(audioOn)); });
-    } catch (e) { /* audio state not available */ }
+    } catch (e) {}
     try {
       platformPaused = !!B.platform.isPaused;
       B.platform.on(ev('PAUSE_STATE_CHANGED', 'pause_state_changed'), p => { platformPaused = !!p; syncFreeze(); });
-    } catch (e) { /* pause state not available */ }
+    } catch (e) {}
     try {
       B.platform.on(ev('VISIBILITY_STATE_CHANGED', 'visibility_state_changed'), s => { hidden = s === 'hidden'; syncFreeze(); });
-    } catch (e) { /* visibility state not available */ }
+    } catch (e) {}
     try {
       B.advertisement.on(ev('INTERSTITIAL_STATE_CHANGED', 'interstitial_state_changed'), s => adListeners.slice().forEach(f => f(s)));
-    } catch (e) { /* ads not available */ }
+    } catch (e) {}
     syncFreeze();
     return B;
   })();
   if (root.document) root.document.addEventListener('visibilitychange', () => { hidden = root.document.hidden; syncFreeze(); });
 
   const P = {
-    inYouTube: false,                       // kept for interface compatibility with the Playables build
+    inYouTube: false,
     inPlaygama: false,
 
-    firstFrameReady() { /* the Bridge shows the platform loading screen until game_ready */ },
-    gameReady() { ready.then(b => { if (b) try { b.platform.sendMessage('game_ready'); } catch (e) { /* ignore */ } }); },
+    firstFrameReady() {},
+    gameReady() { ready.then(b => { if (b) try { b.platform.sendMessage('game_ready'); } catch (e) {} }); },
 
-    /** Resolves to the saved string ('' when there is none). Never hangs. */
     load() {
       return withTimeout(ready, 9000).then(b => {
         if (b && b.storage) return withTimeout(b.storage.get(KEY, false), 5000);
@@ -78,11 +64,10 @@
       lastSaved = str;
       return ready.then(b => {
         if (b && b.storage) return Promise.resolve(b.storage.set(KEY, str)).catch(() => { lastSaved = null; });
-        try { root.localStorage.setItem(KEY, str); } catch (e) { /* ignore */ }
+        try { root.localStorage.setItem(KEY, str); } catch (e) {}
       });
     },
 
-    /** Career star total; only the best value is kept. */
     sendScore(value) { lastScore = Math.max(lastScore, Math.floor(value) || 0); },
     setKnownScore(v) { lastScore = Math.max(lastScore, Math.floor(v || 0)); },
 
@@ -91,8 +76,6 @@
     onPause(cb) { pauseCbs.push(cb); },
     onResume(cb) { resumeCbs.push(cb); },
 
-    /** Interstitial at a natural break: the end of a race. Never at game start (the platform handles
-        that and the minimum delay between ads itself). Always resolves, ad or no ad. */
     interstitial() {
       return ready.then(b => {
         if (!b || !b.advertisement || b.advertisement.isInterstitialSupported === false) return false;
@@ -105,8 +88,8 @@
             else if (s === 'failed') finish(false);
           };
           adListeners.push(on);
-          const t1 = setTimeout(() => { if (!started) finish(false); }, 5000);   // nothing happened: carry on
-          const t2 = setTimeout(() => finish(false), 90000);                       // never get stuck
+          const t1 = setTimeout(() => { if (!started) finish(false); }, 5000);
+          const t2 = setTimeout(() => finish(false), 90000);
           try { b.advertisement.showInterstitial(); } catch (e) { finish(false); }
         });
       });
@@ -117,8 +100,6 @@
   };
   ready.then(b => { P.inPlaygama = !!b; });
 
-  // gameplay_started / gameplay_stopped follow the race itself: on while a race is running,
-  // off in menus, on the results screen, in the pause menu and while an ad plays.
   let playing = false;
   setInterval(() => {
     if (!pg) return;
@@ -126,7 +107,7 @@
     const now = !!st && (st.mode === 'countdown' || st.mode === 'race') && !st.paused && !st.adPause && !st.sysPaused && !root.document.hidden;
     if (now === playing) return;
     playing = now;
-    try { pg.platform.sendMessage(now ? 'gameplay_started' : 'gameplay_stopped'); } catch (e) { /* ignore */ }
+    try { pg.platform.sendMessage(now ? 'gameplay_started' : 'gameplay_stopped'); } catch (e) {}
   }, 200);
 
   root.SkyPlayables = P;

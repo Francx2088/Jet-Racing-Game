@@ -1,4 +1,3 @@
-/* Crazy Racers - game logic, input, HUD, audio. */
 (function () {
   'use strict';
   const T = THREE;
@@ -13,19 +12,16 @@
 
   const PLAY = window.SkyPlayables;
   window.addEventListener('error', e => {
-    if (PLAY.inYouTube) return;                              // inside YouTube errors go to ytgame.health instead
+    if (PLAY.inYouTube) return;
     const d = document.createElement('div'); d.id = 'err'; d.textContent = 'Error: ' + e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno;
     document.body.appendChild(d);
   });
 
-  /* ---------------- save data ---------------- */
   let save = { reached: 1, best: {}, sound: true, allDone: false };
-  // progress lives in the Playables cloud save (loaded at boot, see bottom of file)
   const persist = () => PLAY.save(JSON.stringify(save));
   const totalStars = () => Object.values(save.best).reduce((a, b) => a + (b.stars || 0), 0);
   let ytAudio = PLAY.audioEnabled();
 
-  /* ---------------- renderer ---------------- */
   const canvas = $('c');
   const renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
@@ -42,7 +38,6 @@
   }
   window.addEventListener('resize', resize); resize();
 
-  // sparks
   const SP = 60, spPos = new Float32Array(SP * 3), spVel = [], spLife = new Float32Array(SP);
   for (let i = 0; i < SP; i++) spVel.push(V3(0, 0, 0));
   const spGeo = new T.BufferGeometry(); spGeo.setAttribute('position', new T.BufferAttribute(spPos, 3));
@@ -65,7 +60,6 @@
     spGeo.attributes.position.needsUpdate = true;
   }
 
-  // nitro light trails from the tail lights (every car)
   const TRAIL_N = 22;
   const trailMat = new T.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
   function makeTrail() {
@@ -100,7 +94,6 @@
       tr.mesh.geometry.attributes.position.needsUpdate = true; tr.mesh.geometry.attributes.color.needsUpdate = true;
     }
   }
-  // finish-line fireworks
   const FW = 420, fwPos = new Float32Array(FW * 3), fwCol = new Float32Array(FW * 3), fwVel = [], fwLife = new Float32Array(FW), fwBase = [];
   for (let i = 0; i < FW; i++) { fwVel.push(V3(0, 0, 0)); fwBase.push(new T.Color()); fwPos[i * 3 + 1] = -99999; }
   const fwGeo = new T.BufferGeometry(); fwGeo.setAttribute('position', new T.BufferAttribute(fwPos, 3)); fwGeo.setAttribute('color', new T.BufferAttribute(fwCol, 3));
@@ -132,7 +125,6 @@
     fwGeo.attributes.position.needsUpdate = true; fwGeo.attributes.color.needsUpdate = true;
   }
 
-  /* ---------------- audio ---------------- */
   const audio = {
     ctx: null, eng: null, wind: null,
     init() {
@@ -141,13 +133,12 @@
         const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
         const ctx = this.ctx = new C();
         this.master = ctx.createGain(); this.master.gain.value = save.sound && ytAudio ? 0.6 : 0; this.master.connect(ctx.destination);
-        // recorded engine + nitro sounds (sounds/engine.mp3 loops; sounds/nitro.mp3 plays on every nitro burst)
         this.engGain = ctx.createGain(); this.engGain.gain.value = 0; this.engGain.connect(this.master);
         this.nitroGain = ctx.createGain(); this.nitroGain.connect(this.master);
         const load = url => fetch(url).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no)));
         load('sounds/engine.mp3').then(buf => {
           const src = this.engSrc = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-          src.loopStart = 0.1; src.loopEnd = Math.min(buf.duration, 9.18);   // seamless loop region inside the padded file
+          src.loopStart = 0.1; src.loopEnd = Math.min(buf.duration, 9.18);
           src.connect(this.engGain); src.start(0, 0.1);
         }).catch(() => {});
         load('sounds/nitro.mp3').then(buf => { this.nitroBuf = buf; }).catch(() => {});
@@ -175,12 +166,12 @@
       if (this.engSrc) this.engSrc.playbackRate.setTargetAtTime(0.78 + frac * 0.55 + (boost ? 0.08 : 0), t, 0.08);
       this.engGain.gain.setTargetAtTime(on ? 0.3 + frac * 0.4 : 0, t, 0.1);
       const nitro = on && boost;
-      if (nitro && !this.nitroSrc && this.nitroBuf) {            // nitro fires: the whine builds up from the start
+      if (nitro && !this.nitroSrc && this.nitroBuf) {
         const src = this.nitroSrc = this.ctx.createBufferSource(); src.buffer = this.nitroBuf; src.loop = true;
         src.loopStart = 3.1; src.loopEnd = Math.min(this.nitroBuf.duration, 5.65);
         const g = src.fade = this.ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.85, t + 0.06);
         src.connect(g); g.connect(this.nitroGain); src.start(t);
-      } else if (!nitro && this.nitroSrc) {                       // nitro over: fade the whine out
+      } else if (!nitro && this.nitroSrc) {
         const src = this.nitroSrc; this.nitroSrc = null;
         src.fade.gain.cancelScheduledValues(t); src.fade.gain.setValueAtTime(src.fade.gain.value, t); src.fade.gain.linearRampToValueAtTime(0, t + 0.35);
         src.stop(t + 0.4);
@@ -190,14 +181,12 @@
     },
     beep(go) { this.tone(go ? 880 : 520, go ? 0.5 : 0.18, 'square', 0.12); },
     ding(n) { this.tone(660 + n * 70, 0.18, 'triangle', 0.18, 990 + n * 70); },
-    boost() { /* the recorded nitro sound starts in engine() as soon as the nitro fires */ },
+    boost() {},
     ring() { this.tone(520, 0.4, 'sine', 0.2, 1040); },
     crash() { this.tone(120, 0.35, 'sawtooth', 0.25, 40); },
     fin() { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, 0.3, 'triangle', 0.2), i * 120)); }
   };
 
-  /* ---------------- input ---------------- */
-  // Desktop: arrow keys. Landscape phone: two arrow buttons. Portrait phone: swipe left / right anywhere.
   const input = { left: false, right: false, kl: false, kr: false, analog: 0, touching: false, swipeDX: 0 };
   let touchSeen = false;
   function isTouchDevice() {
@@ -229,7 +218,6 @@
   });
   window.addEventListener('blur', () => { input.kl = input.kr = false; });
 
-  // landscape: left / right arrow buttons (slide a thumb from one to the other)
   const arrows = $('arrows'), btnL = $('btnL'), btnR = $('btnR');
   let arrowId = null;
   function arrowSet(e) {
@@ -242,8 +230,6 @@
   arrows.addEventListener('pointerup', e => { if (e.pointerId === arrowId) arrowClear(); });
   arrows.addEventListener('pointercancel', arrowClear); arrows.addEventListener('lostpointercapture', arrowClear);
 
-  // portrait: swipe. Moving a finger left moves the car left, moving it right moves the car right,
-  // anywhere on the screen; the car follows the swipe and holds that line when the finger stops.
   let dragId = null, dragLastX = 0;
   window.addEventListener('pointerdown', e => {
     if (state.layout !== 'ctl-portrait' || (state.mode !== 'race' && state.mode !== 'countdown') || state.paused || dragId !== null) return;
@@ -254,7 +240,6 @@
   const dragEnd = e => { if (e.pointerId !== dragId) return; dragId = null; input.touching = false; input.swipeDX = 0; };
   window.addEventListener('pointerup', dragEnd); window.addEventListener('pointercancel', dragEnd);
 
-  /* ---------------- game state ---------------- */
   const state = { mode: 'menu', levelIdx: 0, world: null, cars: [], player: null, time: 0, raceT: 0, countT: 0, finishT: 0, paused: false, autopilot: false, resultShown: false };
   applyLayout();
   const fr = { p: V3(0, 0, 0), f: V3(0, 0, -1), u: V3(0, 1, 0), r: V3(1, 0, 0), k: 0, i: 0 };
@@ -271,7 +256,6 @@
     return o;
   }
 
-  /* ---------------- level / race setup ---------------- */
   function loadWorld(idx) {
     if (state.world && state.levelIdx === idx && state.world.built) return;
     if (state.world) { scene.remove(state.world.group); state.world.dispose(); }
@@ -311,7 +295,6 @@
       c.react = 42 + rnd() * 60; c.padSeek = 0.55 + rnd() * 0.4; c.margin = 1.2 + rnd() * 0.5; c.rnd = rnd;
       cars.push(c);
     }
-    // grid: 2 columns x 3 rows, player somewhere in the back half
     const slots = []; for (let r = 0; r < 3; r++) for (const sx of [-1, 1]) slots.push({ s: w.track.startS - 8 - r * 11, lat: sx * L.width * 0.2 });
     const order = [0, 1, 2, 3, 4, 5];
     const pSlot = 3 + Math.floor(rnd() * 3);
@@ -323,18 +306,15 @@
     });
     state.cars = cars; state.player = player;
     state.raceT = 0; state.finishT = 0; state.resultShown = false;
-    // stats
     state.stats = { boosts: 0, crashes: 0, top: 0 };
   }
 
-  /* ---------------- gameplay update ---------------- */
   const CENT = 0.2;
   function hazardsAhead(c, ahead) {
     const out = [];
     for (const ob of state.world.feats.obst) { const d = ob.i * DS - c.s; if (d > -3 && d < ahead) out.push(ob); }
     return out;
   }
-  // choose a lateral target that stays out of every blocked span (evaluated for when the car arrives)
   function freeLane(c, laneT, halfW, margin) {
     const w = state.world, t = state.time, spans = [];
     for (const ob of hazardsAhead(c, c.react)) {
@@ -360,10 +340,9 @@
     frameAt(c.s, fr);
     const halfW = L.width / 2 - 1.15;
     const kAhead = tr.kappa[Math.min(tr.n - 2, Math.floor(c.s / DS) + 14)] || 0;
-    // ---- lateral ----
     if (c.isPlayer && !drive) {
       let want = clamp((input.right || input.kr ? 1 : 0) - (input.left || input.kl ? 1 : 0), -1, 1);
-      if (input.touching) {                                   // swipe: steer towards the line the finger asked for
+      if (input.touching) {
         const gain = L.width * 0.9 / Math.max(200, window.innerWidth * 0.55);
         c.swipeT = clamp((c.swipeT === undefined ? c.lat : c.swipeT) + input.swipeDX * gain, -halfW, halfW); input.swipeDX = 0;
         want = clamp((c.swipeT - c.lat) * 0.6, -1, 1);
@@ -377,7 +356,6 @@
       c.latV = clamp(c.latV, -30, 30);
       c.lat += c.latV * dt;
     } else {
-      // rivals: wander in their lane, chase boost pads, then steer around hazards and other cars
       let laneT = c.lane0 + Math.sin(state.time * c.laneF + c.ph) * c.laneAmp;
       if (!state.demo) {
         if (!c.padTarget || c.padTarget.i * DS < c.s - 4) {
@@ -399,7 +377,6 @@
       c.lat += clamp((laneT - c.lat) * 2.6, -15, 15) * dt;
       c.latV = (c.lat - prev) / Math.max(dt, 1e-4);
     }
-    // walls (every car scrapes and loses speed the same way)
     if (Math.abs(c.lat) > halfW) {
       const sgn = Math.sign(c.lat);
       c.lat = sgn * halfW;
@@ -410,21 +387,18 @@
       }
       c.latV = -c.latV * 0.2;
     }
-    // ---- speed: one rule book for everyone ----
     let target = L.base * (c.isPlayer ? 1 : c.skill);
     const racing = state.mode === 'race';
     if (!c.isPlayer && !state.demo) {
-      const p = state.player, lead = p.s - c.s;           // > 0: rival is behind the player
+      const p = state.player, lead = p.s - c.s;
       if (lead > 40) target *= 1 + Math.min(L.aiRubber, (lead - 40) / 700);
       else if (lead < -80) target *= 1 - Math.min(0.03, (-lead - 80) / 2500);
       target *= 1 - Math.min(0.06, Math.abs(kAhead) * 30);
     }
-    // road nitro: boost pads (and slipstream) fill the tank, a full-enough tank fires by itself
     if (racing) {
       if (!c.nitroOn && c.nitro >= NITRO_MIN) c.nitroOn = true;
       if (c.nitroOn) { c.nitro -= NITRO_BURN * dt; if (c.nitro <= 0) { c.nitro = 0; c.nitroOn = false; } else target *= NITRO_GAIN; }
     } else c.nitroOn = false;
-    // after a crash or bump the car limps for a moment
     if (c.slowT > 0) { c.slowT -= dt; target *= c.slowF; }
     target *= 1 - fr.f.y * 0.1;
     if (c.draft > 0) target *= 1.04;
@@ -438,7 +412,6 @@
   }
 
   const NITRO_MIN = 8, NITRO_BURN = 24, NITRO_GAIN = 1.42, PAD_FILL = 36;
-  // what a knock does: [speed kept, limp seconds, limp speed factor, spin out, nitro kept]
   const HITS = {
     crash: [0.5, 1.5, 0.6, 1, 0.5], laser: [0.55, 1.3, 0.62, 1, 0.5], cones: [0.85, 0.6, 0.85, 0, 0.9],
     bump: [0.82, 0.8, 0.82, 0, 0.85], nudge: [0.95, 0.35, 0.93, 0, 1], wall: [0.96, 0.35, 0.9, 0, 1]
@@ -458,7 +431,6 @@
     } else if (near(c) && (kind === 'crash' || kind === 'laser')) audio.tone(160, 0.25, 'sawtooth', 0.1, 50);
   }
 
-  // boost pads fill every car's tank; hazards hurt every car
   function pickups(c) {
     const w = state.world, F = w.feats, t = state.time, st = state.stats;
     const idx = c.s / DS;
@@ -483,7 +455,6 @@
     }
   }
 
-  // car-to-car contact: the car behind takes the bigger hit, the car in front gets a nudge
   function carCollisions(dt) {
     const cars = state.cars;
     for (let a = 0; a < cars.length; a++) for (let b = a + 1; b < cars.length; b++) {
@@ -494,7 +465,7 @@
         const back = ds < 0 ? A : B, front = back === A ? B : A;
         if (back.bumpCd <= 0 && front.bumpCd <= 0) {
           back.bumpCd = front.bumpCd = 0.8;
-          const side = Math.abs(ds) < 2.2;                  // side by side: both trade paint equally
+          const side = Math.abs(ds) < 2.2;
           hit(back, 'bump'); hit(front, side ? 'bump' : 'nudge');
           if (near(back) || near(front)) emitSparks(V3().addVectors(back.mesh.position, front.mesh.position).multiplyScalar(0.5).setY(back.mesh.position.y + 0.6), 8, V3(0, 2, 0), 8);
         }
@@ -502,7 +473,6 @@
     }
   }
 
-  // slipstream: sitting right behind any car fills the nitro tank, for rivals too
   function drafting() {
     const M = state.world.L.mech;
     for (const c of state.cars) {
@@ -520,7 +490,6 @@
     return state.cars.slice().sort((a, b) => (a.finished && b.finished) ? a.finishTime - b.finishTime : a.finished ? -1 : b.finished ? 1 : b.s - a.s);
   }
 
-  /* ---------------- placing car meshes ---------------- */
   const _m = new T.Matrix4(), _q = new T.Quaternion(), _q2 = new T.Quaternion(), _e = new T.Euler(), _v = V3(0, 0, 0), _z = V3(0, 0, 0);
   function placeCar(c, dt) {
     frameAt(c.s, fr);
@@ -538,7 +507,6 @@
     c.parts.flames.forEach(f => { f.scale.z = fl * (3.2 + Math.random() * 1.2) + 0.01; f.position.z = c.dims.L * 0.99 + 0.5 * f.scale.z; f.scale.x = f.scale.y = 1 + fl * 0.6; f.material.color.setHex(c.nitroOn ? 0x4fd8ff : 0xffa73a); });
   }
 
-  /* ---------------- camera ---------------- */
   const cam = { pos: V3(), look: V3(), up: V3(0, 1, 0), fov: 70, shake: 0, init: false };
   const _a = V3(), _b = V3(), _c = V3(), _vel = V3(), _prev = V3(), WORLD_UP = V3(0, 1, 0);
   const frA = { p: V3(), f: V3(), u: V3(), r: V3(), k: 0, i: 0 }, frB = { p: V3(), f: V3(), u: V3(), r: V3(), k: 0, i: 0 };
@@ -557,7 +525,7 @@
       lookAt = _b.copy(base).addScaledVector(fr.f, 8).addScaledVector(fr.u, 1.5);
       fovT = 62; up.copy(fr.u);
     } else if (state.mode === 'countdown') {
-      const k = clamp(state.countT / 3.4, 0, 1);       // 0 = start of intro, 1 = GO
+      const k = clamp(state.countT / 3.4, 0, 1);
       const e = k * k * (3 - 2 * k);
       const ang = (1 - e) * 2.4, rad = lerp(10, 9, e), hgt = lerp(3.4, 3.6, e);
       desiredPos = _a.copy(car).addScaledVector(fr.f, -Math.cos(ang) * rad).addScaledVector(fr.r, Math.sin(ang) * rad).addScaledVector(fr.u, hgt + (1 - e) * 2);
@@ -569,7 +537,6 @@
       lookAt = _b.copy(car).addScaledVector(fr.u, 1);
       fovT = 62;
     } else {
-      // chase cam: rides the road behind the car and aims at the road ahead, so it leans into every corner
       const boost = p.nitroOn ? 1 : 0, tall = camera.aspect < 1;
       const back = (tall ? 8.4 : 7.0) + sf * 1.3 + boost * 1.1, h = (tall ? 3.2 : 2.45) + sf * 0.2;
       frameAt(p.s - back, frB);
@@ -577,7 +544,7 @@
       frameAt(p.s + 15 + sf * 6, frA);
       lookAt = _b.copy(frA.p).addScaledVector(frA.r, p.lat * 0.55).addScaledVector(frA.u, tall ? 0.6 : 0.95);
       frameAt(p.s, fr);
-      up.copy(fr.u).lerp(WORLD_UP, 0.35 * Math.max(0, fr.u.y)).normalize();      // keep the horizon calmer on banked turns
+      up.copy(fr.u).lerp(WORLD_UP, 0.35 * Math.max(0, fr.u.y)).normalize();
       fovT = 63 + sf * 11 + boost * 7;
     }
     if (state.debugCam) { const o = state.debugCam; desiredPos = _a.copy(car).addScaledVector(fr.r, o[0]).addScaledVector(fr.u, o[1]).addScaledVector(fr.f, o[2]); lookAt = _b.copy(car).addScaledVector(fr.u, 0.7); fovT = o[3] || 45; cam.init = false; }
@@ -590,15 +557,12 @@
     camera.lookAt(cam.look);
     const portrait = camera.aspect < 1;
     camera.fov = portrait ? clamp(cam.fov * 1.32, 60, 100) : cam.fov;
-    // nudge the view so the car clears the on-screen controls
     const shift = state.mode === 'menu' ? 0 : state.layout === 'ctl-landscape' ? 0.05 : state.layout === 'ctl-portrait' ? -0.13 : 0.03;
     const vw = window.innerWidth, vh = window.innerHeight;
     if (shift !== 0) camera.setViewOffset(vw, vh, 0, Math.round(vh * shift), vw, vh); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    // camera velocity for weather streaks
     _vel.copy(camera.position).sub(_prev).divideScalar(Math.max(dt, 1e-3)); _prev.copy(camera.position);
   }
-  /* ---------------- HUD ---------------- */
   const hud = { pos: $('pos'), time: $('time'), toast: $('toast'), count: $('count'), vig: $('vig'), flash: $('flash'), intro: $('intro'), nitroBox: $('nitroBox') };
   let lastPos = -1;
   const lights = [...document.querySelectorAll('#lights i')];
@@ -606,7 +570,6 @@
   function flash(a) { hud.flash.style.opacity = a; setTimeout(() => { hud.flash.style.opacity = 0; }, 90); }
   const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
 
-  // --- speedometer: transparent segmented arc, big digital speed, gear; nitro: segmented tank bar ---
   const MAXK = 400, REDK = 320, KMH = 2.0, SEGS = 40, NSEG = 12;
   const pt = (cx, cy, r, deg) => [cx + r * Math.sin(deg * Math.PI / 180), cy - r * Math.cos(deg * Math.PI / 180)];
   const F = n => n.toFixed(1);
@@ -631,7 +594,6 @@
     $('spd').innerHTML = g;
     gauge.segs = [...$('spd').querySelectorAll('.sg')];
     gauge.speed = $('spdNum'); gauge.gear = $('spdGear');
-    // nitro tank
     let n = '<path d="M14 6 C9 12 8 16 11 20 C10 16 14 14 14 10 C16 14 18 16 16 20 C20 17 20 11 14 6 Z" fill="#33d6ff"/>';
     n += '<text x="26" y="18" fill="#fff" font-size="13" font-weight="800" letter-spacing="2" font-family="Saira Condensed,Arial Narrow,sans-serif">NITRO</text>';
     n += '<text id="nosPct" x="156" y="18" fill="rgba(235,240,255,.8)" font-size="12" font-weight="800" text-anchor="end" font-family="Saira Condensed,Arial Narrow,sans-serif">0%</text>';
@@ -672,7 +634,6 @@
     drawMini();
   }
 
-  // minimap
   const mini = $('mini'), mctx = mini.getContext('2d');
   let miniBase = null, miniXf = null;
   function buildMini() {
@@ -701,7 +662,6 @@
     }
   }
 
-  /* ---------------- flow ---------------- */
   function show(id, on) { $(id).classList.toggle('hidden', !on); }
   function showLoading(txt, fn) {
     $('loadTxt').textContent = txt; show('loading', true);
@@ -741,7 +701,7 @@
   function finishRace() {
     const p = state.player;
     state.mode = 'finish'; state.finishT = 0;
-    const place = state.cars.filter(c => c.finished).length;  // player already flagged finished
+    const place = state.cars.filter(c => c.finished).length;
     p.place = place;
     audio.fin(); celebrate(); hud.intro.innerHTML = ''; toast(place === 1 ? 'VICTORY!' : 'FINISH!', '#ffe45c');
     setTimeout(() => {
@@ -766,7 +726,7 @@
     if (!save.best[L.id].time) delete save.best[L.id].time;
     const passed = place <= 3;
     if (passed && idx < LAST) save.reached = Math.max(save.reached || 1, idx + 2);
-    if (idx === LAST) save.allDone = true;                       // raced the last track: free track select opens
+    if (idx === LAST) save.allDone = true;
     persist();
     PLAY.sendScore(totalStars());
     $('resLevel').textContent = 'Track ' + L.id + ' · ' + L.name;
@@ -788,7 +748,6 @@
     if (audio.ctx) audio.engine(0, false, false);
   }
 
-  /* ---------------- main loop ---------------- */
   let last = performance.now(), fpsAcc = 0;
   function frame(now) {
     requestAnimationFrame(frame);
@@ -832,9 +791,7 @@
         }
       }
       if (state.mode === 'race') { carCollisions(dt); drafting(); p.top = Math.max(p.top || 0, p.speed); }
-      // after the finish line, everyone coasts on
       if (state.mode === 'finish') { state.finishT += dt; p.speed += (w.L.base * 0.6 - p.speed) * (1 - Math.exp(-1.2 * dt)); p.lat += (0 - p.lat) * (1 - Math.exp(-1.2 * dt)); p.latV = 0; }
-      // keep finished AI from running off the track end
       for (const c of state.cars) { if (c.s > w.track.length - 40) { c.s = w.track.length - 40; c.speed *= 0.9; } }
       placeAll(dt); updateCamera(dt);
       if (state.mode === 'race') updateHUD();
@@ -844,17 +801,14 @@
     updateSparks(dt); updateTrails(dt); updateFireworks(dt);
   }
 
-  // simple autopilot used by the headless tests (window.SkyGame.autoplay): drives like a rival, minus the rubber band
   function autopilotInput(c) { c.lane0 = 0; c.laneAmp = 0; c.react = 90; }
 
-  /* ---------------- UI wiring ---------------- */
-  // career: tracks unlock one after another and only the next one can be raced, until all of them are unlocked
   function buildLevelGrid() {
     const g = $('grid'); g.innerHTML = '';
     const cur = Math.min(save.reached || 1, NL);
     $('gridNote').textContent = save.allDone ? 'Free play · pick any track' : 'Career · race Track ' + cur + ' next or replay any track you have passed';
     LEVELS.forEach((L, i) => {
-      const open = save.allDone || i + 1 <= cur;            // passed tracks and the next one can be raced
+      const open = save.allDone || i + 1 <= cur;
       const c = document.createElement('button');
       const isNext = !save.allDone && i + 1 === cur;
       c.className = 'card' + (isNext ? ' next' : open ? '' : ' locked');
@@ -870,7 +824,6 @@
       g.appendChild(c);
     });
   }
-  // saved progress: carry on at the next track; once every track is unlocked, pick freely
   $('playBtn').addEventListener('click', () => { if (save.allDone) { buildLevelGrid(); show('menu', false); show('levels', true); } else startLevel(Math.min(save.reached || 1, NL) - 1); });
   $('levelsBtn').addEventListener('click', () => { buildLevelGrid(); show('menu', false); show('levels', true); });
   $('levelsBack').addEventListener('click', () => { if (state.mode !== 'menu') { startMenuDemo(); return; } show('levels', false); show('menu', true); });
@@ -885,7 +838,6 @@
   $('pMenuBtn').addEventListener('click', () => { state.paused = false; startMenuDemo(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && (state.mode === 'race')) togglePause(); });
 
-  // public hooks (useful for tests and for wiring the platform SDK later)
   window.SkyGame = {
     state, startLevel, startMenuDemo, togglePause, input, save,
     set autoplay(v) { state.autopilot = !!v; },
@@ -893,8 +845,6 @@
     fastForward(sec, step) { step = step || 1 / 30; for (let t = 0; t < sec && state.mode !== 'menu'; t += step) tick(step); }
   };
 
-  /* ---------------- YouTube Playables lifecycle ---------------- */
-  // platform pause: everything stops (simulation, rendering, timers, audio) until onResume
   PLAY.onPause(() => { state.sysPaused = true; input.kl = input.kr = input.left = input.right = false; input.touching = false; if (audio.ctx) audio.ctx.suspend(); });
   PLAY.onResume(() => { state.sysPaused = false; last = performance.now(); if (audio.ctx) audio.ctx.resume(); });
   PLAY.onAudioChange(on => { ytAudio = !!on; audio.apply(); });
@@ -903,7 +853,6 @@
   menuBtns.forEach(b => { b.disabled = true; });
   startMenuDemo();
   requestAnimationFrame(frame);
-  // first frame on screen -> load the cloud save -> interactive
   requestAnimationFrame(() => requestAnimationFrame(() => {
     PLAY.firstFrameReady();
     PLAY.load().then(str => {

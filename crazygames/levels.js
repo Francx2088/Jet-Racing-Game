@@ -1,4 +1,3 @@
-/* Crazy Racers - the 8 levels (data only). */
 (function (root) {
   'use strict';
   const S = len => ({ len });
@@ -9,7 +8,7 @@
     { len: Math.PI * R, pitch: 180, yaw: 32 * Math.sign(dir), local: true, noscale: true, mix: 0.5 },
     { len: Math.PI * R, pitch: 180, yaw: -32 * Math.sign(dir), local: true, noscale: true, mix: 0.5 },
     { len: 40, pitch: -5, noscale: true }];
-  const LOOPL = (R, dir) => [LOOP(R, dir), { len: 60, unroll: true }];   // loop that comes out with a level road
+  const LOOPL = (R, dir) => [LOOP(R, dir), { len: 60, unroll: true }];
   const climb = (deg, len) => [P(30, deg), S(len), P(30, -deg)];
   const coil = (deg, len, yaw, bank) => [P(30, deg), T(len, yaw, bank), P(30, -deg)];
   const jump = len => [P(20, 7), { len: len / 2, gap: true }, { len: 20, pitch: -14, gap: true }, { len: len / 2, gap: true }, P(20, 7)];
@@ -147,7 +146,6 @@
     }
   ];
 
-  // Race cars. u runs -1 (nose) .. +1 (tail); cab = [windshield base, roof front, roof rear, rear glass base].
   const CARS = [
     { name: 'Falcon GT3', type: 'GT3', len: 4.6, wid: 2.04, wr: 0.36, noseH: 0.6, hoodH: 0.78, beltH: 0.9, deckH: 0.96, tailH: 0.84, cab: [-0.3, -0.06, 0.28, 0.56], roofH: 1.22, cabW: 0.92,
       fender: 0.05, flare: 0.08, wing: 'gt', canards: true, livery: 'stripes', num: 7, color: '#ff6a12', accent: '#ffffff', trim: '#14151a' },
@@ -170,7 +168,6 @@
     { name: 'Apex Prime', type: 'Hypercar prototype', len: 4.85, wid: 2.04, wr: 0.37, noseH: 0.44, hoodH: 0.6, beltH: 0.72, deckH: 0.9, tailH: 0.88, cab: [-0.25, -0.07, 0.15, 0.42], roofH: 1.06, cabW: 0.6,
       fender: 0.13, flare: 0.07, wing: 'proto', fin: true, canards: true, livery: 'stripes', num: 10, color: '#d9a21e', accent: '#101015', trim: '#ffffff' }
   ];
-  // ---------------- Tracks 11 - 20 ----------------
   const car = (base, o) => Object.assign({}, CARS[base], o);
   CARS.push(
     car(0, { name: 'Lagoon GT3', num: 11, color: '#13c6c6', accent: '#ffe23a', trim: '#0b1a2a', livery: 'arrow' }),

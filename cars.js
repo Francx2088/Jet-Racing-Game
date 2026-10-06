@@ -1,15 +1,9 @@
-/* Crazy Racers - procedural race cars.
-   The body is lofted from ~60 cross-sections, so it curves in every direction: sculpted fender crests,
-   a lower hood between them, tumblehome sides, real wheel arches cut into the shell. A painted livery
-   (base colour, stripes or swooshes, door numbers, sponsor plates, carbon sills) is mapped over the
-   shell, and the head/tail lights are painted into an emissive map so they follow the bodywork. */
 (function (root) {
   'use strict';
   const T = THREE;
   const lin = hex => new T.Color(hex).convertSRGBToLinear();
   const sstep = t => t * t * (3 - 2 * t);
 
-  // smooth key-framed profile: keys = [[u, value], ...]
   function K(keys) {
     const k = keys.slice().sort((a, b) => a[0] - b[0]).filter((p, i, arr) => i === 0 || p[0] - arr[i - 1][0] > 0.015);
     return u => {
@@ -21,7 +15,6 @@
       return k[k.length - 1][1];
     };
   }
-  // Catmull-Rom through 2D points
   function cr(pts, per) {
     const out = [], n = pts.length;
     for (let i = 0; i < n - 1; i++) {
@@ -36,7 +29,6 @@
     return out;
   }
 
-  /* ---------------- body model (shape functions shared by the shell, cabin and details) ---------------- */
   function model(sp) {
     const L = sp.len / 2, wr = sp.wr, hb = 0.15, archR = wr + 0.06;
     const uF = sp.uF || -0.62, uR = sp.uR || 0.64;
@@ -55,10 +47,10 @@
       return b;
     };
     const S = u => hb + (Ht(u) - hb) * 0.5;
-    const top = u => Ht(u) - dip(u);                       // height of the body centre line
+    const top = u => Ht(u) - dip(u);
     const rh = K([[c0, 0], [c1, sp.roofH - sp.beltH], [c2, sp.roofH - sp.beltH - 0.02], [c3, 0]]);
     const roof = u => top(u) + (u > c0 && u < c3 ? rh(u) : 0);
-    const half2 = u => {                                   // right half of the shell section, bottom centre -> top centre
+    const half2 = u => {
       const A = a(u), H = Ht(u), D = dip(u), Bc = B(u), s = S(u);
       return cr([[0, Bc], [A * 0.84, Bc], [A, hb + (s - hb) * 0.5], [A * 0.99, s], [A * 0.93, s + (H - s) * 0.62], [A * 0.8, H], [A * 0.5, H - D * 0.8], [0, H - D]], 3)
         .map(([x, y]) => [Math.max(0, x), Math.max(y, Bc)]);
@@ -67,13 +59,12 @@
     return { L, wr, hb, archR, uF, uR, a, Ht, dip, B, S, top, roof, half2, perim, c0, c1, c2, c3 };
   }
 
-  /* ---------------- lofted shell ---------------- */
   function shellGeometry(m) {
     const N = 64, pos = [], uv = [], dark = [], idxPaint = [], idxDark = [];
     let R = 0;
     for (let i = 0; i <= N; i++) {
       const u = -1 + 2 * i / N, h = m.half2(u), Bc = m.B(u), z = u * m.L;
-      const ring = h.concat(h.slice(0, -1).reverse().slice(0, -1).map(([x, y]) => [-x, y]));  // right side up, left side down
+      const ring = h.concat(h.slice(0, -1).reverse().slice(0, -1).map(([x, y]) => [-x, y]));
       ring.push(ring[0]);
       R = ring.length;
       let len = 0; const cum = [0];
@@ -85,7 +76,6 @@
       const tgt = dark[a] && dark[b] && dark[c] && dark[d] ? idxDark : idxPaint;
       tgt.push(a, c, b, b, c, d);
     }
-    // nose and tail caps (dark: grille / rear panel)
     for (const [i, sgn] of [[0, -1], [N, 1]]) {
       const c = pos.length / 3; let cy = 0;
       for (let j = 0; j < R; j++) cy += pos[(i * R + j) * 3 + 1];
@@ -100,7 +90,6 @@
     g.computeVertexNormals();
     return g;
   }
-  // glass cabin with a painted roof panel (roof uses the body's livery UVs so stripes run over it)
   function cabinGeometry(m, sp) {
     const N = 30, pos = [], uv = [], roofF = [], idxGlass = [], idxRoof = [];
     let R = 0;
@@ -115,7 +104,7 @@
       ring.forEach(([x, y], j) => {
         pos.push(x, y, z);
         uv.push((u + 1) / 2, 0.5 - x / P);
-        const k = j < half.length ? j : R - 1 - j;               // index from the base on either side
+        const k = j < half.length ? j : R - 1 - j;
         roofF.push(isRoof && k >= half.length - 5 ? 1 : 0);
       });
     }
@@ -132,26 +121,20 @@
     return g;
   }
 
-  /* ---------------- livery ---------------- */
-  // canvas x = along the car (0 nose .. 1 tail); canvas y = around the section.
-  // Right side: lower half of the canvas (bottom -> top of car); left side: upper half (top -> bottom).
   function liveryTextures(sp, m, colors, hi) {
     const W = hi ? 1024 : 512, H = hi ? 512 : 256;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const em = document.createElement('canvas'); em.width = W; em.height = H;
     const g = cv.getContext('2d'), e = em.getContext('2d');
     const X = s => s * W, Y = t => (1 - t) * H;
-    const kx = W / sp.len, ky = H / m.perim(0);              // px per metre along / around
+    const kx = W / sp.len, ky = H / m.perim(0);
     g.fillStyle = colors.base; g.fillRect(0, 0, W, H);
     e.fillStyle = '#000'; e.fillRect(0, 0, W, H);
-    // subtle panel shading towards the sills
     const grd = g.createLinearGradient(0, 0, 0, H);
     grd.addColorStop(0, 'rgba(0,0,0,.28)'); grd.addColorStop(0.2, 'rgba(0,0,0,0)'); grd.addColorStop(0.5, 'rgba(255,255,255,.06)'); grd.addColorStop(0.8, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(0,0,0,.28)');
     g.fillStyle = grd; g.fillRect(0, 0, W, H);
-    // both-sides helper: f(ctx, t) draws one side; mirror maps t -> 1 - t for the left side
     const sides = fn => { fn(t => t); fn(t => 1 - t); };
     const poly = (ctx, pts, mt) => { ctx.beginPath(); pts.forEach(([s, t], i) => i ? ctx.lineTo(X(s), Y(mt(t))) : ctx.moveTo(X(s), Y(mt(t)))); ctx.closePath(); ctx.fill(); };
-    // pattern
     if (sp.livery === 'stripes') {
       g.fillStyle = colors.accent; g.fillRect(0, Y(0.5) - 0.2 * ky, W, 0.13 * ky); g.fillRect(0, Y(0.5) + 0.07 * ky, W, 0.13 * ky);
       g.fillStyle = colors.trim; g.fillRect(0, Y(0.5) - 0.24 * ky, W, 0.02 * ky); g.fillRect(0, Y(0.5) + 0.22 * ky, W, 0.02 * ky);
@@ -168,12 +151,10 @@
         g.fillStyle = colors.trim; poly(g, [[0, 0.27], [1, 0.27], [1, 0.29], [0, 0.29]], mt); });
       g.fillStyle = colors.accent; g.fillRect(0, Y(0.5) - 0.08 * ky, X(0.35), 0.16 * ky);
     }
-    // carbon sills / lower bodywork
     g.fillStyle = '#121318'; g.fillRect(0, Y(0.075), W, H - Y(0.075)); g.fillRect(0, 0, W, Y(0.925));
-    // door numbers, front-fender and rear sponsor plates
     const decal = (s, t, draw, side) => {
       g.save(); g.translate(X(s), Y(side > 0 ? t : 1 - t));
-      g.scale(side > 0 ? -1 : 1, side > 0 ? 1 : -1);          // right side reads mirrored in u, left side upside-down in t
+      g.scale(side > 0 ? -1 : 1, side > 0 ? 1 : -1);
       g.scale(1, ky / kx); draw(g); g.restore();
     };
     for (const side of [1, -1]) {
@@ -187,14 +168,13 @@
       decal(0.3, 0.34, c => { const w = 0.5 * kx, h = 0.13 * kx; c.fillStyle = '#0d0d12'; c.fillRect(-w / 2, -h / 2, w, h); c.fillStyle = '#fff'; c.font = '800 ' + Math.round(h * 0.75) + 'px "Saira Condensed","Arial Narrow",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('NITRO', 0, 1); }, side);
       decal(0.69, 0.31, c => { const w = 0.5 * kx, h = 0.11 * kx; c.fillStyle = '#ffffff'; c.fillRect(-w / 2, -h / 2, w, h); c.fillStyle = '#d11'; c.font = '900 italic ' + Math.round(h * 0.75) + 'px "Saira Condensed","Arial Narrow",sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('CRAZY RACERS', 0, 1); }, side);
     }
-    // lights (painted on the body and glowing through the emissive map)
     const lamp = (s0, s1, t0, t1, col, glow) => sides(mt => {
       g.fillStyle = '#0b0c10'; poly(g, [[s0 - 0.006, t0 - 0.01], [s1 + 0.006, t0 - 0.01], [s1 + 0.006, t1 + 0.01], [s0 - 0.006, t1 + 0.01]], mt);
       g.fillStyle = col; poly(g, [[s0, t0], [s1, t0 + (t1 - t0) * 0.35], [s1, t1], [s0, t1]], mt);
       e.fillStyle = glow; poly(e, [[s0, t0], [s1, t0 + (t1 - t0) * 0.35], [s1, t1], [s0, t1]], mt);
     });
-    lamp(0.03, 0.085, 0.335, 0.385, '#eaf4ff', '#ffffff');      // headlights
-    lamp(0.955, 0.995, 0.31, 0.41, '#ff2230', '#ff1020');      // tail lights
+    lamp(0.03, 0.085, 0.335, 0.385, '#eaf4ff', '#ffffff');
+    lamp(0.955, 0.995, 0.31, 0.41, '#ff2230', '#ff1020');
     g.fillStyle = '#ff2230'; g.fillRect(X(0.985), Y(0.53), X(0.015), Y(0.47) - Y(0.53)); e.fillStyle = '#ff1020'; e.fillRect(X(0.985), Y(0.53), X(0.015), Y(0.47) - Y(0.53));
     const map = new T.CanvasTexture(cv), emap = new T.CanvasTexture(em);
     map.encoding = emap.encoding = T.sRGBEncoding;
@@ -202,7 +182,6 @@
     return { map, emap };
   }
 
-  /* ---------------- shared bits ---------------- */
   let G = null;
   function geos() {
     if (G) return G;
@@ -226,7 +205,7 @@
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
     return (blobTex = new T.CanvasTexture(c));
   }
-  function tireTexture() {                                  // slick sidewall lettering ring
+  function tireTexture() {
     if (tireTex) return tireTex;
     const c = document.createElement('canvas'); c.width = 256; c.height = 32;
     const g = c.getContext('2d'); g.fillStyle = '#121216'; g.fillRect(0, 0, 256, 32);
@@ -259,7 +238,6 @@
     });
   }
 
-  /** Build a race car. style = entry of SkyLevels.CARS, color = body hex. opts: {env, detail:'high'|'low', glow:hex} */
   function build(style, color, opts) {
     opts = opts || {};
     const g = geos(), env = opts.env || null, high = opts.detail !== 'low';
@@ -268,7 +246,6 @@
     const accentHex = color.toLowerCase() === style.color.toLowerCase() ? style.accent : (style.accent === '#ffffff' ? '#101015' : '#ffffff');
     const tex = liveryTextures(style, m, { base: color, accent: accentHex, trim: style.trim }, high);
 
-    // ---- materials ----
     const paint = new T.MeshPhysicalMaterial({ map: tex.map, emissiveMap: tex.emap, emissive: 0xffffff, emissiveIntensity: 1.4, metalness: 0.35, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.04, envMap: env, envMapIntensity: 0.85, side: T.DoubleSide });
     const under = new T.MeshStandardMaterial({ color: lin('#0b0b0f'), roughness: 0.8, metalness: 0.2, side: T.DoubleSide });
     const glass = new T.MeshPhysicalMaterial({ color: lin('#05080e'), metalness: 0.9, roughness: 0.03, clearcoat: 1, envMap: env, envMapIntensity: 2.0, side: T.DoubleSide });
@@ -281,11 +258,9 @@
     const bodyPaint = new T.MeshPhysicalMaterial({ color: lin(color), metalness: 0.35, roughness: 0.32, clearcoat: 1, envMap: env, envMapIntensity: 0.85 });
     const lightM = new T.MeshBasicMaterial({ color: lin('#ff2030') });
 
-    // ---- shell + cabin ----
     car.add(new T.Mesh(shellGeometry(m), [paint, under]));
     car.add(new T.Mesh(cabinGeometry(m, style), [glass, paint]));
 
-    // ---- aero: splitter, canards, diffuser ----
     const aN = m.a(-0.95);
     ent(S, g.box, carbon, 0, 0.15, -L * 0.94, aN * 1.95, 0.025, 0.22);
     if (style.canards) for (const sx of [-1, 1]) for (const k of [0, 1]) {
@@ -294,10 +269,8 @@
     }
     for (let k = -2; k <= 2; k++) ent(S, g.box, carbon, k * m.a(0.97) * 0.33, 0.21, L * 0.9, 0.016, 0.1, 0.4);
     ent(S, g.box, carbon, 0, 0.165, L * 0.9, m.a(0.97) * 1.6, 0.02, 0.45);
-    // rear light bar on the tail panel
     ent(S, g.box, lightM, 0, style.tailH - 0.1, L + 0.004, m.a(1) * 1.5, 0.035, 0.012);
 
-    // ---- wings / fin / scoop ----
     const deck = m.top(0.9);
     const wingFoil = (y, z, span, chord, tilt) => { ent(S, g.box, carbon, 0, y, z, span, 0.04, chord, tilt); ent(S, g.box, accentM, 0, y + 0.03, z + chord * 0.48, span, 0.05, 0.02, tilt); };
     const endplates = (y, z, span, h, d) => { for (const sx of [-1, 1]) ent(S, g.box, carbon, sx * span / 2, y - h * 0.3, z, 0.02, h, d); };
@@ -326,21 +299,16 @@
       ent(S, g.box, bodyPaint, 0, (y0 + m.top(0.85)) / 2 + 0.06, (z0 + z1) / 2, 0.025, (y0 - m.top(0.85)) * 0.9 + 0.16, z1 - z0);
     }
     if (style.scoop) { const u = m.c1 + 0.04; ent(S, g.box, carbon, 0, m.roof(u) + 0.05, u * L + 0.12, 0.3, 0.09, 0.4); ent(S, g.box, under, 0, m.roof(u) + 0.05, u * L - 0.09, 0.26, 0.06, 0.02); }
-    // hood louvres
     for (const sx of [-1, 1]) for (let k = 0; k < 4; k++) { const u = m.uF + 0.08 + k * 0.035; ent(S, g.box, under, sx * m.a(u) * 0.42, m.Ht(u) - m.dip(u) * 0.55 + 0.004, u * L, m.a(u) * 0.28, 0.012, 0.025); }
-    // mirrors
     for (const sx of [-1, 1]) {
       const u = m.c0 + 0.11, x = m.a(u) * 0.8 * (style.cabW || 1);
       ent(S, g.box, carbon, sx * (x + 0.07), m.top(u) + 0.08, u * L, 0.14, 0.03, 0.05);
       ent(S, g.box, bodyPaint, sx * (x + 0.18), m.top(u) + 0.12, u * L, 0.16, 0.09, 0.14);
     }
-    // exhausts
     for (const sx of [-1, 1]) { ent(S, g.cylZ, chrome, sx * 0.14, 0.3, L + 0.01, 0.06, 0.06, 0.14); ent(S, g.cylZ, under, sx * 0.14, 0.3, L + 0.06, 0.045, 0.045, 0.06); }
-    // tow hooks
     ent(S, g.box, caliper, m.a(-0.97) * 0.6, 0.26, -L - 0.02, 0.05, 0.03, 0.06);
     ent(S, g.box, caliper, 0, 0.36, L + 0.02, 0.05, 0.03, 0.06);
 
-    // ---- wheels: slicks, centre-lock rims, discs and calipers ----
     const tireSide = new T.MeshStandardMaterial({ map: tireTexture(), roughness: 0.85 });
     [[-1, m.uF], [1, m.uF], [-1, m.uR], [1, m.uR]].forEach(([sx, u]) => {
       const wg = new T.Group(); wg.position.set(sx * (m.a(u) * 0.97 - ww / 2 + 0.02), wr, u * L);
@@ -358,21 +326,19 @@
         const mx = new T.Matrix4().makeRotationX(a).multiply(new T.Matrix4().compose(new T.Vector3(fx + sx * 0.02, wr * 0.34, 0), new T.Quaternion(), new T.Vector3(0.03, wr * 0.62, high ? 0.04 : 0.07)));
         W.push({ geo: g.box, mat: rimM, m: mx });
       }
-      ent(W, g.cylX, chrome, fx + sx * 0.03, 0, 0, 0.04, wr * 0.14, wr * 0.14);          // centre-lock nut
+      ent(W, g.cylX, chrome, fx + sx * 0.03, 0, 0, 0.04, wr * 0.14, wr * 0.14);
       ent(W, g.cylX, caliper, fx + sx * 0.05, 0, 0, 0.012, wr * 0.07, wr * 0.07);
       flush(W, spin);
-      const cal = []; ent(cal, g.box, caliper, sx * (ww / 2 - 0.12), wr * 0.32, -wr * 0.3, 0.07, wr * 0.28, wr * 0.32); flush(cal, wg);   // caliper does not spin
+      const cal = []; ent(cal, g.box, caliper, sx * (ww / 2 - 0.12), wr * 0.32, -wr * 0.3, 0.07, wr * 0.28, wr * 0.32); flush(cal, wg);
       car.add(wg); parts.wheels.push(spin);
     });
 
-    // ---- exhaust flames ----
     for (const sx of [-1, 1]) {
       const fl = new T.Mesh(g.flame, new T.MeshBasicMaterial({ color: lin('#ffa73a'), transparent: true, opacity: 0.9, blending: T.AdditiveBlending, depthWrite: false }));
       fl.position.set(sx * 0.14, 0.3, L + 0.45); fl.scale.set(1, 1, 0.01); car.add(fl); parts.flames.push(fl);
     }
     flush(S, car);
 
-    // ---- glow + soft shadow ----
     const glow = new T.Mesh(g.blob, new T.MeshBasicMaterial({ color: lin(opts.glow || style.accent), transparent: true, opacity: 0.3, blending: T.AdditiveBlending, depthWrite: false, map: blobTexture() }));
     glow.scale.set(style.wid * 1.4, 1, L * 2.1); glow.position.y = 0.05; car.add(glow);
     const shadow = new T.Mesh(g.blob, new T.MeshBasicMaterial({ transparent: true, opacity: 0.85, depthWrite: false, map: blobTexture(), color: 0x000000 }));

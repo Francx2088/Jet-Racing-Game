@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-# Builds the Playgama upload: dist/crazy-racers-playgama.zip (index.html at the zip root).
 set -e
 cd "$(dirname "$0")"
 rm -rf dist && mkdir -p dist/game/fonts dist/game/sounds

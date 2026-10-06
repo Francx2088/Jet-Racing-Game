@@ -1,8 +1,3 @@
-/* Crazy Racers - track generator (pure math, no THREE dependency).
-   A track is built by "flying a turtle": each command rotates the frame
-   (yaw about world-up, pitch about the road's right axis, roll about the
-   forward axis) while stepping forward DS units at a time. That makes
-   banked turns, coils, loops and corkscrews trivial and always smooth. */
 (function (root) {
   'use strict';
   const DS = 2;
@@ -44,7 +39,7 @@
         if (bank && yaw) dr += -Math.sign(yaw) * bank * (Math.sin(Math.PI * t1) - Math.sin(Math.PI * t0));
         if (dy) { const ax = c.local ? u : [0, 1, 0]; f = rot(f, ax, dy); u = rot(u, ax, dy); }
         if (dp) { const r = cross(f, u); f = rot(f, r, dp); u = rot(u, r, dp); }
-        if (c.unroll) {                       // level the road again: remove whatever bank is left, smoothly
+        if (c.unroll) {
           const r0 = cross(f, u), rem = 1 - E(t0);
           if (rem > 1e-6) dr += Math.asin(Math.max(-1, Math.min(1, r0[1]))) * (E(t1) - E(t0)) / rem;
         }
@@ -55,7 +50,6 @@
       }
     }
     level.cmds.flat(Infinity).forEach(seg);
-    // final run-out so the finish line has road behind and ahead of it
     const n = P.length / 3;
     const Pa = new Float32Array(P), Fa = new Float32Array(F), Ua = new Float32Array(U);
     const Ra = new Float32Array(n * 3);
@@ -72,7 +66,6 @@
       startS: 70, finishS: (n - 75) * DS };
   }
 
-  // Pick spots for boost pads and obstacles along the road.
   function makeObstacle(type, i, w, m, rnd) {
     const pick = f => (rnd() * 2 - 1) * w * f;
     switch (type) {
@@ -102,7 +95,6 @@
     for (let k = 0; k < (m.pads || 0); k++) kinds.push('pad');
     for (let k = 0; k < (m.obst || 0); k++) kinds.push('obst');
     for (let k = kinds.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [kinds[k], kinds[j]] = [kinds[j], kinds[k]]; }
-    // never put two hazards back to back, so there is always room to recover
     const lo = 200, hi = n - 120, step = (hi - lo) / Math.max(1, kinds.length);
     let lastObst = -999, mixIdx = Math.floor(rnd() * mix.length);
     kinds.forEach((kind, idx) => {
@@ -124,7 +116,6 @@
     return out;
   }
 
-  // Debug helper (used by the node validator).
   function selfIntersections(track, width) {
     const { n, P } = track, bad = [];
     for (let i = 0; i < n; i += 2) for (let j = i + 90; j < n; j += 2) {
